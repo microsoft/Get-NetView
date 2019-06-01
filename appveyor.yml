@@ -1,0 +1,53 @@
+# YAML Reference Guide          : https://www.appveyor.com/docs/appveyor-yml/
+# Environmental Variables Guide : https://www.appveyor.com/docs/environment-variables/
+# YAML Validator                : https://ci.appveyor.com/tools/validate-yaml
+# AppVeyor Build Pipeline       : https://www.appveyor.com/docs/build-configuration/
+# GitHub push with tokens       : https://www.appveyor.com/docs/how-to/git-push/
+
+# Repo cloned into this folder on the build worker
+clone_folder: c:\projects\Get-NetView
+
+init:
+  - ps: $Env:repoName = $($env:APPVEYOR_REPO_NAME.Split('/')[1])
+
+# Install script prior to running tests
+install:
+  - ps: . .\tests\setup\install.ps1
+
+# Initiate tests
+test_script:
+  - ps: . .\tests\setup\initiate-tests.ps1
+
+# finalize build
+deploy_script:
+  - ps: . .\tests\setup\deploy.ps1
+
+version: 0.0.0.{build}
+
+# Environment variables for PowerShell Gallery (NuGetAPIKey) and GitHub (GitHubKey) API key for publishing updates
+#    - The "secure:" value is the Appveyor encryption of the key
+#    - GitHub update occurs to ensure that the module version is incremented based on the build number
+
+environment:
+  NuGetApiKey:
+    secure: 8zTIgzkh0lIeJ+PZRLSS047LFbQqLbbm2YDdqwgTs4ctfGKtZAKQNDyEtn2geNtq
+  GitHubKey:
+    secure: BTbC1Dgv/DE7g/n+/emm4FiSiRTjsRYnsqRUiF2NEhuwHvKkS35zCRsFm27g8OR4
+  CODECOV_TOKEN:
+    secure: hSsf4xeuX4TrtB0u6R+3ogaz1GQhfRV0yQmzlisNPBUub9ErR47NSlIg3GpfCucpEFZ8P06pCcAN0h2XBDPe5cnBXkRSYboBuP1blEtv7dc=
+
+# Disable automatic builds; Without this, the following error shows up:
+# "Specify a project or solution file. The directory does not contain a project or solution file."
+build: "off"
+
+max_jobs: 1
+
+# Ignore testing a commit if specific strings used in commit message: updated readme, update readme, update docs, update version, update appveyor
+skip_commits:
+  message: /updated readme.*|update readme.*s|update docs.*|update version.*|update appveyor.*/
+  files:
+    - README.md
+
+# There's no need to alter the build number for a Pull Request (PR) since they don't modify anything
+pull_requests:
+  do_not_increment_build_number: true

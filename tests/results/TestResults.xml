@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="9" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2019-05-29" time="22:43:48">
+  <environment user="appveyor" machine-name="APPVYR-WIN" cwd="C:\projects\MSFTNetworking.Tools" user-domain="APPVYR-WIN" platform="Microsoft Windows Server 2012 R2 Datacenter|C:\windows|\Device\Harddisk0\Partition5" nunit-version="2.5.8.0" os-version="6.3.9600" clr-version="4.0.30319.42000" />
+  <culture-info current-culture="en-US" current-uiculture="en-US" />
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="6.0702" asserts="0" description="Pester">
+    <results>
+      <test-suite type="TestFixture" name="C:\projects\MSFTNetworking.Tools\tests\unit\unit.tests.ps1" executed="True" result="Success" success="True" time="6.0702" asserts="0" description="C:\projects\MSFTNetworking.Tools\tests\unit\unit.tests.ps1">
+        <results>
+          <test-suite type="TestFixture" name="MSFTNetworking.Tools-Manifest" executed="True" result="Success" success="True" time="5.7404" asserts="0" description="MSFTNetworking.Tools-Manifest">
+            <results>
+              <test-suite type="TestFixture" name="Validation" executed="True" result="Success" success="True" time="5.4734" asserts="0" description="Validation">
+                <results>
+                  <test-case description="[Import-PowerShellDataFile] - MSFTNetworking.Tools.psd1 is a valid PowerShell Data File" name="MSFTNetworking.Tools-Manifest.Validation.[Import-PowerShellDataFile] - MSFTNetworking.Tools.psd1 is a valid PowerShell Data File" time="0.2034" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="[Test-ModuleManifest] - MSFTNetworking.Tools.psd1 should pass the basic test" name="MSFTNetworking.Tools-Manifest.Validation.[Test-ModuleManifest] - MSFTNetworking.Tools.psd1 should pass the basic test" time="0.0074" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should specify 3 modules" name="MSFTNetworking.Tools-Manifest.Validation.Should specify 3 modules" time="0.0244" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should contain the DataCenterBridging Module" name="MSFTNetworking.Tools-Manifest.Validation.Should contain the DataCenterBridging Module" time="0.0988" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="The DataCenterBridging module should be available in the PowerShell gallery" name="MSFTNetworking.Tools-Manifest.Validation.The DataCenterBridging module should be available in the PowerShell gallery" time="0.0079" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should contain the VMNetworkAdapter Module" name="MSFTNetworking.Tools-Manifest.Validation.Should contain the VMNetworkAdapter Module" time="0.003" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="The VMNetworkAdapter module should be available in the PowerShell gallery" name="MSFTNetworking.Tools-Manifest.Validation.The VMNetworkAdapter module should be available in the PowerShell gallery" time="0.0026" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should contain the SoftwareTimestamping Module" name="MSFTNetworking.Tools-Manifest.Validation.Should contain the SoftwareTimestamping Module" time="0.0028" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="The SoftwareTimestamping module should be available in the PowerShell gallery" name="MSFTNetworking.Tools-Manifest.Validation.The SoftwareTimestamping module should be available in the PowerShell gallery" time="0.0024" asserts="0" success="True" result="Success" executed="True" />
+                </results>
+              </test-suite>
+            </results>
+          </test-suite>
+        </results>
+      </test-suite>
+    </results>
+  </test-suite>
+</test-results>
