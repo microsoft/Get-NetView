@@ -1,3 +1,18 @@
+##### :star: More by the Microsoft Core Networking team
+Find more from us using the [MSFTNet](https://github.com/topics/msftnet) topic
+
+[![Build status]()]()
+
+# Description
+
+Get-NetView is a tool used to simplify the collection of network configuration information for diagnosis of networking issues on Windows.  This tool is also included in [Get-SDDCDiagnosticInfo](https://github.com/PowerShell/PrivateCloud.DiagnosticInfo).
+
+## Usage
+
+For help and options run:
+```Get-Help Get-NetView```
+
+
 # Contributing
 
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
