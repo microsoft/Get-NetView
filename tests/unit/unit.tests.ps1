@@ -12,9 +12,9 @@ Describe "$($env:repoName)-Manifest" {
         }
 
         Import-Module .\$($env:repoName).psd1 -ErrorAction SilentlyContinue
-        $command = Get-Command Get-NetView -ErrorAction SilentlyContinue
+        $command = Get-Command $($env:repoName) -ErrorAction SilentlyContinue
 
-        It "Should have the Get-NetView function available" {
+        It "Should have the $($env:repoName) function available" {
             $command | Should not BeNullOrEmpty
         }
     }
