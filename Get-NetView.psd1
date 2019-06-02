@@ -18,7 +18,7 @@ ModuleVersion = '0.0.0.1'
 # CompatiblePSEditions = @()
 
 # ID used to uniquely identify this module
-GUID = 'cc4805a2-e819-4d5a-bce7-b671dcc263b9'
+GUID = '72f13048-50c0-44fd-b7f1-369e98319092'
 
 # Author of this module
 Author = 'Dan Cuomo'
@@ -95,7 +95,7 @@ PrivateData = @{
     PSData = @{
 
         # Tags applied to this module. These help with module discovery in online galleries.
-        Tags = 'MSFTNetworking'
+        Tags = 'MSFTNet'
 
         # A URL to the license for this module.
         # LicenseUri = ''
