@@ -22,7 +22,7 @@ test_script:
 deploy_script:
   - ps: . .\tests\setup\deploy.ps1
 
-version: 2019.6.4.{build}
+version: 2019.6.7.{build}
 
 # Environment variables for PowerShell Gallery (NuGetAPIKey) and GitHub (GitHubKey) API key for publishing updates
 #    - The "secure:" value is the Appveyor encryption of the key
