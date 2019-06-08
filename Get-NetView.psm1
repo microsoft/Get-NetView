@@ -1585,18 +1585,11 @@ Function Get-NetView {
         [String []] $cmds = "Get-CimInstance -ClassName ""CIM_DataFile"" -Filter ""Name='$vfpExtPath'"""
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
-        $switches = Get-CimInstance "Msvm_VirtualEthernetSwitch" -Namespace "Root\Virtualization\v2"
-        foreach ($vmSwitch in $switches) {
-            if ($vmSwitch.Name -eq $id) {
-                $currswitch = $vmSwitch
-                break
-            }
-        }
+        $currSwitch = Get-CimInstance -Filter "Name='$id'" -ClassName "Msvm_VirtualEthernetSwitch" -Namespace "Root\Virtualization\v2" 
+        $ports = Get-CimAssociatedInstance -InputObject $currSwitch -ResultClassName "Msvm_EthernetSwitchPort"
 
-        $ports = $currswitch.GetRelated("Msvm_EthernetSwitchPort", "Msvm_SystemDevice", $null, $null, $null, $null, $false, $null)
-        foreach ($port in $ports) {
-            $file     = "VfpCtrl.PortGuid.$portGuid.txt"
-            $portGuid = $port.Name
+        foreach ($portGuid in $ports.Name) {
+            $file = "VfpCtrl.PortGuid.$portGuid.txt"
             [String []] $cmds = "vfpctrl.exe /list-vmswitch-port",
                                 "vfpctrl.exe /list-space /port $portGuid",
                                 "vfpctrl.exe /list-mapping /port $portGuid",
@@ -2379,7 +2372,7 @@ Function Get-NetView {
         )
 
         $start = Get-Date
-        $version = "2019.06.04.0" # Version within date context
+        $version = "2019.06.07.0" # Version within date context
 
         # Input Validation
         CheckAdminPrivileges $SkipAdminCheck
