@@ -9,7 +9,7 @@ clone_folder: c:\projects\Get-NetView
 
 init:
   - ps: $Env:repoName = $($env:APPVEYOR_REPO_NAME.Split('/')[1])
-  - ps: $(Get-Date -format yyyy.MM.dd).$env:appveyor_build_number
+  - ps: Update-AppveyorBuild -Version "$(Get-Date -format yyyy.MM.dd).$env:appveyor_build_number"
 
 # Install script prior to running tests
 install:
