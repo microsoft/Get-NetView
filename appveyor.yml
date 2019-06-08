@@ -14,6 +14,7 @@ init:
 # Install script prior to running tests
 install:
   - ps: . .\tests\setup\install.ps1
+  - ps: write-output $env:APPVEYOR_BUILD_VERSION
 
 # Initiate tests
 test_script:
