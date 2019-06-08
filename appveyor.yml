@@ -9,6 +9,7 @@ clone_folder: c:\projects\Get-NetView
 
 init:
   - ps: $Env:repoName = $($env:APPVEYOR_REPO_NAME.Split('/')[1])
+  - ps: $(Get-Date -format yyyy.MM.dd).$env:appveyor_build_number
 
 # Install script prior to running tests
 install:
@@ -22,7 +23,7 @@ test_script:
 deploy_script:
   - ps: . .\tests\setup\deploy.ps1
 
-version: 2019.6.8.{build}
+version: '{build}'
 
 # Environment variables for PowerShell Gallery (NuGetAPIKey) and GitHub (GitHubKey) API key for publishing updates
 #    - The "secure:" value is the Appveyor encryption of the key
