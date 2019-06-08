@@ -1,4 +1,5 @@
 [![Build status](https://ci.appveyor.com/api/projects/status/rkdclcowkjlh5uu3?svg=true)](https://ci.appveyor.com/project/MSFTCoreNet/get-netview)
+[![downloads](https://img.shields.io/powershellgallery/dt/Get-NetView.svg?label=downloads)](https://www.powershellgallery.com/packages/Get-NetView)
 
 # Description
 
