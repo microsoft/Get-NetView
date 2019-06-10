@@ -28,11 +28,6 @@ Function Get-NetView {
 
         The output is most easily viewed with Visual Studio Code or similar editor with a navigation panel.
 
-        If you receive the error "Get-NetView.ps1 cannot be loaded because running scripts is disabled on this system."
-        then enable execution of scripts for the current PowerShell window with the following:
-
-            Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
-
     .PARAMETER OutputDirectory
         Optional path to the directory where the output should be saved. Can be either a relative or an absolute path.
         If unspecified, the current user's Desktop will be used by default.
@@ -46,15 +41,15 @@ Function Get-NetView {
         Maximum number of simultaneous background tasks, from 1 to 16. Defaults to 5.
 
     .PARAMETER SkipAdminCheck
-        If this switch is present, then the check for administrator privileges will be skipped.
-        Note that less data may be collected and the results may be of limited use.
+        If present, the check for administrator privileges will be skipped. Note that less data
+        will be collected and the results may be of limited or no use.
 
     .EXAMPLE
-        .\Get-NetView.ps1 -OutputDirectory ".\"
+        Get-NetView -OutputDirectory ".\"
         Runs Get-NetView and outputs to the current working directory.
 
     .EXAMPLE
-        .\Get-NetView.ps1 -SkipAdminCheck
+        Get-NetView -SkipAdminCheck
         Runs Get-NetView without verifying administrator privileges and outputs to the Desktop.
 
     .NOTES
