@@ -47,11 +47,33 @@ if ($env:APPVEYOR_REPO_BRANCH -ne 'master') {
         throw $_
     }
 
+    # Create a temp folder with just the files we want to publish to PowerShell Gallery
+    # Otherwise, everything will be published, including the .git folder.
+    $publishedFolder = ".\Get-NetView-published"
+    try {
+        $filesToPublish = @(
+            "Get-NetView.psd1",
+            "Get-NetView.psm1",
+            "LICENSE",
+            "README.md"
+        )
+
+        if (Test-Path $publishedFolder) {
+            Remove-Item -Path $publishedFolder -Recurse -Force
+        }
+
+        New-Item -ItemType Directory -Path $publishedFolder
+        $filesToPublish | foreach {Copy-Item -Path ".\$_" -Destination "$publishedFolder"}
+    } catch {
+        Write-Warning "Failed to create publishing folder."
+        throw $_
+    }
+
     # Publish the new version to the PowerShell Gallery
     try {
         # Build a splat containing the required details and make sure to Stop for errors which will trigger the catch
         $PM = @{
-            Path        = '.'
+            Path        = $publishedFolder
             NuGetApiKey = $env:NuGetApiKey
             ErrorAction = 'Stop'
             Force       = $true
@@ -63,10 +85,6 @@ if ($env:APPVEYOR_REPO_BRANCH -ne 'master') {
         Write-Warning "Publishing update $newVersion to the PowerShell Gallery failed."
         throw $_
     }
-
-    # TEMP output
-    Get-ChildItem "."
-    Get-Content ".\.nuspec" -ErrorAction "SilentlyContinue" | Out-Host
 
     # Publish the new version back to Master on GitHub 
     try {
