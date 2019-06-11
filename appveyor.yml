@@ -4,12 +4,15 @@
 # AppVeyor Build Pipeline       : https://www.appveyor.com/docs/build-configuration/
 # GitHub push with tokens       : https://www.appveyor.com/docs/how-to/git-push/
 
+version: '{build}'
+
 # Repo cloned into this folder on the build worker
 clone_folder: c:\projects\Get-NetView
 
 init:
   - ps: $Env:repoName = $($env:APPVEYOR_REPO_NAME.Split('/')[1])
-  - ps: Update-AppveyorBuild -Version "$(Get-Date -format yyyy.MM.dd).$env:appveyor_build_number"
+  - ps: $version = "$(Get-Date -format yyyy.MM.dd).$env:appveyor_build_number"
+  - ps: Update-AppveyorBuild -Version $version
 
 # Install script prior to running tests
 install:
@@ -22,8 +25,6 @@ test_script:
 # finalize build
 deploy_script:
   - ps: . .\tests\setup\deploy.ps1
-
-version: '{build}'
 
 # Environment variables for PowerShell Gallery (NuGetAPIKey) and GitHub (GitHubKey) API key for publishing updates
 #    - The "secure:" value is the Appveyor encryption of the key
