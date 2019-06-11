@@ -64,6 +64,10 @@ if ($env:APPVEYOR_REPO_BRANCH -ne 'master') {
         throw $_
     }
 
+    # TEMP output
+    Get-ChildItem "."
+    Get-Content ".\.nuspec" -ErrorAction "SilentlyContinue" | Out-Host
+
     # Publish the new version back to Master on GitHub 
     try {
         # Set up a path to the git.exe cmd, import posh-git to give us control over git, and then push changes to GitHub
