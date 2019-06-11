@@ -2116,7 +2116,7 @@ function Sanity {
     Write-Output "Version: $($MyInvocation.MyCommand.Module.Version)" | Out-File -Encoding ascii -Append $out
     Write-Output "Parameters: $paramString" | Out-File -Encoding ascii -Append $out
 
-    [String []] $cmds = "Get-FileHash -Path $PSCommandPath -Algorithm ""SHA256"" | Format-List -Property * | Out-String -Width $columns"
+    [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm ""SHA256"" | Format-List -Property * | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 } # Sanity()
 
@@ -2200,7 +2200,7 @@ function Initialization {
     }
 
     # Remove alias to Write-Host set in $ExecCommands
-    Remove-Item alias:Write-CmdLog
+    Remove-Item alias:Write-CmdLog -ErrorAction "SilentlyContinue"
 
     # Setup output folder
     EnvDestroy $OutDir
