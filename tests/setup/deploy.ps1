@@ -49,7 +49,7 @@ if ($env:APPVEYOR_REPO_BRANCH -ne 'master') {
 
     # Create a temp folder with just the files we want to publish to PowerShell Gallery
     # Otherwise, everything will be published, including the .git folder.
-    $publishedFolder = ".\Get-NetView-published"
+    $publishedFolder = ".\published\Get-NetView" # leaf dir MUST be named "Get-NetView"
     try {
         $filesToPublish = @(
             "Get-NetView.psd1",
@@ -68,6 +68,8 @@ if ($env:APPVEYOR_REPO_BRANCH -ne 'master') {
         Write-Warning "Failed to create publishing folder."
         throw $_
     }
+
+    Get-ChildItem $publishedFolder
 
     # Publish the new version to the PowerShell Gallery
     try {
