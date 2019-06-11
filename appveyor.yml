@@ -51,5 +51,5 @@ skip_commits:
     - README.md
 
 # There's no need to alter the build number for a Pull Request (PR) since they don't modify anything
-pull_requests:
-  do_not_increment_build_number: true
+#pull_requests:
+#  do_not_increment_build_number: true
