@@ -586,6 +586,11 @@ function NetAdapterWorker {
                         "Get-NetAdapterSriovVf -Name ""$name"" -IncludeHidden | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
+    $file = "Get-NetAdapterUso.txt"
+    [String []] $cmds = "Get-NetAdapterUso -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+                        "Get-NetAdapterUso -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
     $file = "Get-NetAdapterVmq.txt"
     [String []] $cmds = "Get-NetAdapterVmq -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
                         "Get-NetAdapterVmq -Name ""$name"" -IncludeHidden | Format-List  -Property *"
