@@ -20,6 +20,14 @@ Or install this module individually using this command:
 To see all modules from the Microsoft Core Networking team, please use:
 ```Find-Module -Tag MSFTNet```
 
+## Temporary Installation
+```
+Invoke-WebRequest "https://github.com/microsoft/Get-NetView/blob/master/Get-NetView.psm1" -OutFile "Get-NetView.ps1"
+. .\Get-NetView.ps1
+Get-NetView
+```
+
+
 ## Usage
 
 For help and options when running this command directly, use:
