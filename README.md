@@ -20,18 +20,19 @@ Or install this module individually using this command:
 To see all modules from the Microsoft Core Networking team, please use:
 ```Find-Module -Tag MSFTNet```
 
-## Temporary Installation
+## Direct Execution
+The legacy method of direct execution is still supported:
+```PowerShell
+Invoke-WebRequest "aka.ms/Get-NetView" -OutFile "Get-NetView.ps1"
+.\Get-NetView.ps1
 ```
-Invoke-WebRequest "https://github.com/microsoft/Get-NetView/blob/master/Get-NetView.psm1" -OutFile "Get-NetView.ps1"
-. .\Get-NetView.ps1
-Get-NetView
-```
-
 
 ## Usage
 
 For help and options when running this command directly, use:
-```Get-Help Get-NetView```
+```PowerShell
+Get-Help Get-NetView
+```
 
 This tool is also run automatically by [Get-SDDCDiagnosticInfo](https://github.com/PowerShell/PrivateCloud.DiagnosticInfo).
 

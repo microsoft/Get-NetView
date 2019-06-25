@@ -2375,3 +2375,11 @@ function Get-NetView {
         Completion -Src $workDir
     }
 } # Get-NetView
+
+# For backwards compat, support direct execution as a .ps1 file (no dot sourcing needed).
+if (-not [String]::IsNullOrEmpty($MyInvocation.InvocationName)) {
+    if (($MyInvocation.InvocationName -eq "&") -or 
+        ($MyInvocation.MyCommand.Path -eq (Resolve-Path -Path $MyInvocation.InvocationName).ProviderPath)) {
+        Get-NetView @args
+    }
+}
