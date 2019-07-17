@@ -47,8 +47,9 @@ if ($env:APPVEYOR_REPO_BRANCH -ne 'master') {
         # Update Get-NetView.psm1 version to match module
         $getNetViewPath = ".\Get-NetView.psm1"
 
-        $versionRegex = "^\`$Global:Version = `"\d+\.\d+.\d+\.\d+`"$"
-        $(Get-Content $getNetViewPath) -replace $versionRegex,"`$Global:Version = `"$newVersion`"" | Set-Content $getNetViewPath
+        $versionRegex = "\`$Global:Version = `"\d+\.\d+.\d+\.\d+`"`n"
+        $versionUpdate = "`$Global:Version = `"$newVersion`"`n"
+        $(Get-Content -Path $getNetViewPath -Raw) -replace $versionRegex, $versionUpdate | Set-Content -Path $getNetViewPath -NoNewline
     } catch {
         throw $_
     }
