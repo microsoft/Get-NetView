@@ -1,6 +1,4 @@
-#
-# Common Functions
-#
+$Global:Version = "2019.6.25.34"
 
 $ExecFunctions = {
     $columns   = 4096
@@ -2093,7 +2091,8 @@ function Sanity {
     $file = "Metadata.txt"
     $out = Join-Path $dir $file
     $paramString = if ($Params.Count -eq 0) {"None`n`n"} else {"`n$($Params | Out-String)"}
-    Write-Output "Version: $($MyInvocation.MyCommand.Module.Version)" | Out-File -Encoding ascii -Append $out
+    Write-Output "Script Version: $($Global:Version)" | Out-File -Encoding ascii -Append $out
+    Write-Output "Module Version: $($MyInvocation.MyCommand.Module.Version)" | Out-File -Encoding ascii -Append $out
     Write-Output "Parameters: $paramString" | Out-File -Encoding ascii -Append $out
 
     [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm ""SHA256"" | Format-List -Property * | Out-String -Width $columns"
@@ -2224,7 +2223,7 @@ function Completion {
     Write-Host "Diagnostics Data:"
     Write-Host "-----------------"
     Write-Host "Get-NetView"
-    Write-Host "Version: $($MyInvocation.MyCommand.Module.Version)"
+    Write-Host "Version: $($Global:Version)"
     Write-Host "SHA256:  $(if ($hash) {$hash} else {"N/A"})"
     Write-Host ""
     Write-Host $outzip
