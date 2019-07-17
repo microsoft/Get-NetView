@@ -43,6 +43,13 @@ if ($env:APPVEYOR_REPO_BRANCH -ne 'master') {
         (Get-Content -Path $manifestPath) -replace 'NewManifest', "$($env:RepoName)" | Set-Content -Path $manifestPath
         #(Get-Content -Path $manifestPath) -replace 'FunctionsToExport = ', 'FunctionsToExport = @(' | Set-Content -Path $manifestPath -Force
         #(Get-Content -Path $manifestPath) -replace "$($functionList[-1])'", "$($functionList[-1])')" | Set-Content -Path $manifestPath -Force
+
+        # Update Get-NetView.psm1 version to match module
+        $getNetViewPath = ".\Get-NetView.psm1"
+
+        $versionRegex = "\`$Global:Version = `"\d+\.\d+.\d+\.\d+`"`n"
+        $versionUpdate = "`$Global:Version = `"$newVersion`"`n"
+        $(Get-Content -Path $getNetViewPath -Raw) -replace $versionRegex, $versionUpdate | Set-Content -Path $getNetViewPath -NoNewline
     } catch {
         throw $_
     }
