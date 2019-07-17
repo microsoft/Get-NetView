@@ -497,6 +497,10 @@ function NetAdapterWorker {
     $name = $NicName
     $dir  = $OutDir
 
+    $file = "nmbind.txt"
+    [String []] $cmds = "nmbind ""$name"" "
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
     $file = "Get-NetAdapter.txt"
     [String []] $cmds = "Get-NetAdapter -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
                         "Get-NetAdapter -Name ""$name"" -IncludeHidden | Format-List  -Property *"
@@ -1606,6 +1610,9 @@ function NetworkSummary {
                         "netstat -xan | ? {`$_ -match ""445""}"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
+    $file = "_nmbind.txt"
+    [String []] $cmds = "nmbind"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
     $file = "_advfirewall.txt"
     [String []] $cmds = "netsh advfirewall show allprofiles"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
