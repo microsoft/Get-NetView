@@ -24,7 +24,11 @@ To see all modules from the Microsoft Core Networking team, please use:
 The legacy method of direct execution is still supported:
 ```PowerShell
 Invoke-WebRequest "aka.ms/Get-NetView" -OutFile "Get-NetView.ps1"
-.\Get-NetView.ps1
+.\Get-NetView.ps1 -OutputDir .\ 
+```
+If blocked by execution policy:
+```PowerShell
+Powershell.exe -ExecutionPolicy Bypass -File  .\Get-NetView.ps1 -OutputDir .\
 ```
 
 ## Usage
