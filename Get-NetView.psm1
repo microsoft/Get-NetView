@@ -1766,6 +1766,22 @@ function HNSDetail {
     [String []] $cmds = "Get-HNSEndpoint | ConvertTo-Json -Depth 10"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
+    $file = "HNSDiag_all.txt"
+    [String []] $cmds = "HNSDiag list all"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+    $file = "HNSDiag_all_d.txt"
+    [String []] $cmds = "HNSDiag list all -d"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+    $file = "HNSDiag_all_df.txt"
+    [String []] $cmds = "HNSDiag list all -df"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+    $file = "HNSDiag_all_dfl.txt"
+    [String []] $cmds = "HNSDiag list all -dfl"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
     #netsh trace start scenario=Virtualization provider=Microsoft-Windows-tcpip provider=Microsoft-Windows-winnat capture=yes captureMultilayer=yes capturetype=both report=disabled tracefile=$dir\server.etl overwrite=yes
     #Start-Sleep 120
     #netsh trace stop
