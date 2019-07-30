@@ -12,7 +12,7 @@
 RootModule = 'Get-NetView.psm1'
 
 # Version number of this module.
-ModuleVersion = '2019.7.30.41'
+ModuleVersion = '2019.7.30.42'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
