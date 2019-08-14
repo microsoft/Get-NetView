@@ -818,7 +818,7 @@ function ChelsioDetailPerASIC {
 
     $file = "ChelsioDetail-Dumps-BusDevice$i.txt"
     [String []] $cmds = "cxgbtool.exe $ifNameVbd hardware flash ""$dir\Hardware-BusDevice$i-flash.dmp""",
-                        "cxgbtool.exe $ifNameVbd cudbg collect all ""$dir\Cudbg-Collect.dmp""",
+                        "cxgbtool.exe $ifNameVbd cudbg collect all ""$dir\Cudbg-Collect.dmp"" safe",
                         "cxgbtool.exe $ifNameVbd cudbg readflash ""$dir\Cudbg-Readflash.dmp"""
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # ChelsioDetailPerASIC()
