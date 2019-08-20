@@ -31,7 +31,7 @@ $ExecFunctions = {
     function ExecCommandText {
         [CmdletBinding()]
         Param(
-            [parameter(Mandatory=$true)] [ValidateNotNullOrEmpty()] [String] $Command
+            [parameter(Mandatory=$true)] [String] $Command
         )
 
         # Mirror command execution context
@@ -53,7 +53,7 @@ $ExecFunctions = {
     function TestCommand {
         [CmdletBinding()]
         Param(
-            [parameter(Mandatory=$true)] [ValidateNotNullOrEmpty()] [String] $Command
+            [parameter(Mandatory=$true)] [String] $Command
         )
 
         $status = [CommandStatus]::NotTested
@@ -96,7 +96,7 @@ $ExecFunctions = {
     function ExecCommand {
         [CmdletBinding()]
         Param(
-            [parameter(Mandatory=$true)] [ValidateNotNullOrEmpty()] [String] $Command
+            [parameter(Mandatory=$true)] [String] $Command
         )
 
         $result, $commandOut = TestCommand -Command $Command
@@ -187,11 +187,11 @@ function Write-CmdLog {
     $logColor = [ConsoleColor]::White
 
     switch -regex ($CmdLog) {
-        "\[Failed\].*" {
+        "^\[Failed\].*" {
             $logColor = [ConsoleColor]::Yellow
             break
         }
-        "\[Unavailable\].*" {
+        "^\[Unavailable\].*" {
             $logColor = [ConsoleColor]::Gray
             break
         }
@@ -203,13 +203,18 @@ function Write-CmdLog {
 function Open-GlobalThreadPool {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [Int] $MaxThreads
+        [parameter(Mandatory=$true)] [Int] $BackgroundThreads
     )
 
-    if ($Global:ThreadPool -eq $null)
-    {
-        $Global:ThreadPool = [RunspaceFactory]::CreateRunspacePool(1, $MaxThreads)
+    if ($BackgroundThreads -ge 1) {
+        $Global:ThreadPool = [RunspaceFactory]::CreateRunspacePool(1, $BackgroundThreads)
         $Global:ThreadPool.Open()
+
+        if ($BackgroundThreads -eq 1) {
+            # Execute most commands in the main thread, except when
+            # Start-Thread is used directly.
+            Set-Alias ExecCommandsAsync ExecCommands
+        }
     }
 } # Open-GlobalThreadPool()
 
@@ -217,8 +222,7 @@ function Close-GlobalThreadPool {
     [CmdletBinding()]
     Param()
 
-    if ($Global:ThreadPool -ne $null)
-    {
+    if ($Global:ThreadPool -ne $null) {
         Write-Host "Cleanup background threads..."
         $Global:ThreadPool.Close()
         $Global:ThreadPool.Dispose()
@@ -230,62 +234,55 @@ function Start-Thread {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory=$true)] [ScriptBlock] $ScriptBlock,
-        [parameter(Mandatory=$false)] [ValidateScript({Test-Path $_ -PathType Container})] [String] $StartPath = ".",
         [parameter(Mandatory=$false)] [Hashtable] $Params = @{}
     )
 
-    $ps = [PowerShell]::Create()
+    if ($Global:ThreadPool -eq $null) {
+        # Execute command synchronously instead
+        &$ScriptBlock @Params
+    } else {
+        $ps = [PowerShell]::Create()
 
-    $ps.RunspacePool = $Global:ThreadPool
-    $null = $ps.AddScript("Set-Location ""$(Resolve-Path $StartPath)""")
-    $null = $ps.AddScript($ExecFunctions) # import into thread context
-    $null = $ps.AddScript($ScriptBlock, $true).AddParameters($Params)
+        $ps.RunspacePool = $Global:ThreadPool
+        $null = $ps.AddScript("Set-Location $(Get-Location)")
+        $null = $ps.AddScript($ExecFunctions) # import into thread context
+        $null = $ps.AddScript($ScriptBlock, $true).AddParameters($Params)
 
-    $async = $ps.BeginInvoke()
+        $async = $ps.BeginInvoke()
 
-    return @{Name=$ScriptBlock.Ast.Name; AsyncResult=$async; PowerShell=$ps}
+        return @{Name=$ScriptBlock.Ast.Name; AsyncResult=$async; PowerShell=$ps}
+    }
 } # Start-Thread()
 
 function Show-Threads {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [Hashtable[]] $Threads,
-        [parameter(Mandatory=$false)] [Switch] $Sequential
+        [parameter(Mandatory=$false)] [Hashtable[]] $Threads
     )
 
-    if ($Sequential) {
-        $Threads | foreach {
-            $_.Powershell.Streams.Error | Out-Host # blocks until thread completion
-            $_.Powershell.Streams.Warning | Out-Host
-            $_.Powershell.Streams.Information | Out-Host
-            $_.PowerShell.Streams.ClearStreams()
-            $_.PowerShell.EndInvoke($_.AsyncResult)
-        }
-    } else {
-        $mThreads = [Collections.ArrayList]$Threads
+    $mThreads = [Collections.ArrayList]$Threads
 
-        while ($mThreads.Count -gt 0) {
-            for ($i = 0; $i -lt $mThreads.Count; $i++) {
-                $thread = $mThreads[$i]
+    while ($mThreads.Count -gt 0) {
+        for ($i = 0; $i -lt $mThreads.Count; $i++) {
+            $thread = $mThreads[$i]
 
-                $thread.Powershell.Streams.Warning | Out-Host
-                $thread.Powershell.Streams.Warning.Clear()
-                $thread.Powershell.Streams.Information | foreach {Write-CmdLog "$_"}
-                $thread.Powershell.Streams.Information.Clear()
+            $thread.Powershell.Streams.Warning | Out-Host
+            $thread.Powershell.Streams.Warning.Clear()
+            $thread.Powershell.Streams.Information | foreach {Write-CmdLog "$_"}
+            $thread.Powershell.Streams.Information.Clear()
 
-                if ($thread.AsyncResult.IsCompleted)
-                {
-                    # Accessing Streams.Error blocks until thread is completed
-                    $thread.Powershell.Streams.Error | Out-Host
-                    $thread.Powershell.Streams.Error.Clear()
+            if ($thread.AsyncResult.IsCompleted)
+            {
+                # Accessing Streams.Error blocks until thread is completed
+                $thread.Powershell.Streams.Error | Out-Host
+                $thread.Powershell.Streams.Error.Clear()
 
-                    $thread.PowerShell.EndInvoke($thread.AsyncResult)
-                    $mThreads.RemoveAt($i)
-                    $i--
-                }
+                $thread.PowerShell.EndInvoke($thread.AsyncResult)
+                $mThreads.RemoveAt($i)
+                $i--
             }
-            Start-Sleep -Milliseconds 15
         }
+        Start-Sleep -Milliseconds 33
     }
 } # Show-Threads()
 
@@ -2196,14 +2193,8 @@ function EnvCreate {
 function Initialization {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $OutDir,
-        [parameter(Mandatory=$true)] [Bool] $ExecInMain
+        [parameter(Mandatory=$true)] [String] $OutDir
     )
-
-    # Note: Aliases are higher precedent than functions
-    if ($ExecInMain) {
-        Set-Alias ExecCommandsAsync ExecCommands
-    }
 
     # Remove alias to Write-Host set in $ExecCommands
     Remove-Item alias:Write-CmdLog -ErrorAction "SilentlyContinue"
@@ -2306,8 +2297,8 @@ function Completion {
     which can be accessed by using "$CustomModule" as a placeholder. For example, {Copy-Item .\MyFile.txt $CustomModule}
     copies "MyFile.txt" to "CustomModule\MyFile.txt".
 
-.PARAMETER MaxThreads
-    Maximum number of simultaneous background tasks, from 1 to 16. Defaults to 5.
+.PARAMETER BackgroundThreads
+    Maximum number of background tasks, from none up to 16. Defaults to 5.
 
 .PARAMETER SkipAdminCheck
     If present, the check for administrator privileges will be skipped. Note that less data
@@ -2344,9 +2335,10 @@ function Get-NetView {
         [parameter(Mandatory=$false)]
         [ScriptBlock[]] $ExtraCommands = @(),
 
+        [Alias("MaxThreads")]
         [parameter(Mandatory=$false)]
-        [ValidateRange(1, 16)]
-        [Int] $MaxThreads = 5,
+        [ValidateRange(0, 16)]
+        [Int] $BackgroundThreads = 5,
 
         [parameter(Mandatory=$false)]
         [Switch] $SkipAdminCheck = $false
@@ -2358,13 +2350,13 @@ function Get-NetView {
     CheckAdminPrivileges $SkipAdminCheck
     $workDir = NormalizeWorkDir -OutputDirectory $OutputDirectory
 
-    Initialization -OutDir $workDir -ExecInMain ($MaxThreads -eq 1)
+    Initialization -OutDir $workDir
 
     # Start Run
     try {
         CustomModule -OutDir $workDir -Commands $ExtraCommands
 
-        Open-GlobalThreadPool -MaxThreads $MaxThreads
+        Open-GlobalThreadPool -BackgroundThreads $BackgroundThreads
 
         $threads = if ($true) {
             Start-Thread ${function:NetshTrace} -Params @{OutDir=$workDir}
@@ -2397,6 +2389,7 @@ function Get-NetView {
     } finally {
         Close-GlobalThreadPool
 
+        Write-Host "Processing..."
         Sanity -OutDir $workDir -Params $PSBoundParameters
         Completion -Src $workDir
     }
