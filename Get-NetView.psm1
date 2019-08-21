@@ -282,7 +282,8 @@ function Show-Threads {
                 $i--
             }
         }
-        Start-Sleep -Milliseconds 33
+
+        Start-Sleep -Milliseconds 33 # ~30 Hz
     }
 } # Show-Threads()
 
@@ -2298,7 +2299,7 @@ function Completion {
     copies "MyFile.txt" to "CustomModule\MyFile.txt".
 
 .PARAMETER BackgroundThreads
-    Maximum number of background tasks, from none up to 16. Defaults to 5.
+    Maximum number of background tasks, from 0 - 16. Defaults to 5.
 
 .PARAMETER SkipAdminCheck
     If present, the check for administrator privileges will be skipped. Note that less data
