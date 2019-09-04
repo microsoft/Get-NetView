@@ -1122,7 +1122,7 @@ function MellanoxDetail {
 
     if (($versionMajor -lt 2) -or (($versionMajor -eq 2) -and ($versionMinor -lt 20))) {
         $msg = "Driver version is $versionMajor.$versionMinor, which is less than 2.20"
-        ExecControlError -OutDir $out -Function "MellanoxDetail" -Message $msg
+        ExecControlError -OutDir $dir -Function "MellanoxDetail" -Message $msg
         return
     }
 
