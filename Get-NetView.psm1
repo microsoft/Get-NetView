@@ -2054,11 +2054,13 @@ function Environment {
 
     $dir = $OutDir
 
+    $file = "Get-ComputerInfo.txt"
+    [String []] $cmds = "Get-ComputerInfo"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
     $file = "Environment.txt"
     [String []] $cmds = "Get-Variable -Name ""PSVersionTable"" -ValueOnly",
-                        "Get-ItemProperty -Path ""HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion""",
                         "date",
-                        #"Get-WinEvent -ProviderName eventlog | Where-Object {$_.Id -eq 6005 -or $_.Id -eq 6006}",
                         "Get-CimInstance ""Win32_OperatingSystem"" | select -ExpandProperty ""LastBootUpTime""",
                         "Get-CimInstance ""Win32_Processor"" | Format-List -Property *",
                         "systeminfo"
