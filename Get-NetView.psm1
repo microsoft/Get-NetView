@@ -1,4 +1,4 @@
-$Global:Version = "2019.9.14.50"
+$Global:Version = "2019.10.3.54"
 
 $ExecFunctions = {
     $columns   = 4096
