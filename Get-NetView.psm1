@@ -157,6 +157,23 @@ function New-LnkShortcut {
     $null = [Runtime.Interopservices.Marshal]::ReleaseComObject($shell)
 } # New-LnkShortcut()
 
+<#
+.SYNOPSIS
+    Replaces invalid characters with a placeholder to make a
+    valid directory or filename.
+.NOTES
+    Do not pass in a path. It will replace '\' and '/'.
+#>
+function ConvertTo-Filename {
+    [CmdletBinding()]
+    Param(
+        [parameter(Position=0, Mandatory=$true)] [String] $Filename
+    )
+
+    $invalidChars = [System.IO.Path]::GetInvalidFileNameChars() -join ""
+    return $Filename -replace "[$invalidChars]","_"
+}
+
 function TryCmd {
     [CmdletBinding()]
     Param(
@@ -627,7 +644,7 @@ function NetAdapterWorkerPrepare {
         $title = "$title.$desc"
     }
 
-    $dir     = (Join-Path -Path $OutDir -ChildPath "$title")
+    $dir     = Join-Path $OutDir $(ConvertTo-Filename $title)
     New-Item -ItemType directory -Path $dir | Out-Null
 
     Write-Host "Processing: $title"
@@ -645,7 +662,8 @@ function LbfoWorker {
 
     $name  = $LbfoName
     $title = "LBFO.$name"
-    $dir   = (Join-Path -Path $OutDir -ChildPath "$title")
+
+    $dir   = Join-Path $OutDir $(ConvertTo-Filename $title)
     New-Item -ItemType directory -Path $dir | Out-Null
 
     Write-Host "Processing: $title"
@@ -1255,7 +1273,8 @@ function HostVNicDetail {
         # Create dir for the hNIC
         $ifIndex = $vnic.InterfaceIndex
         $title   = "hNic.$ifIndex.$($hnic.Name)"
-        $dir     = (Join-Path -Path $OutDir -ChildPath "$title")
+
+        $dir     = Join-Path $OutDir $(ConvertTo-Filename $title)
         New-Item -ItemType directory -Path $dir | Out-Null
 
         Write-Host "Processing: $title"
@@ -1277,7 +1296,8 @@ function VMNetworkAdapterDetail {
     $name  = $VMNicName
     $id    = $VMNicId
     $title = "VMNic.$name.$id"
-    $dir   = (Join-Path -Path $OutDir -ChildPath "$title")
+
+    $dir   = Join-Path $OutDir $(ConvertTo-Filename $title)
     New-Item -ItemType directory -Path $dir | Out-Null
 
     # We must use Id to identity VMNics, because different VMNics
@@ -1406,7 +1426,7 @@ function VMNetworkAdapterPerVM {
         $vmId   = $vm.VMId
         $title  = "VM.$index.$vmName"
 
-        $dir    = (Join-Path -Path $OutDir -ChildPath "$title")
+        $dir    = Join-Path $OutDir $(ConvertTo-Filename $title)
 
         $vmQuery = $false
         foreach ($vmNic in TryCmd {Get-VMNetworkAdapter -VM $vm} | where {$_.SwitchId -eq $VMSwitchId}) {
@@ -1541,7 +1561,7 @@ function VMSwitchDetail {
         $id    = $vmSwitch.Id
         $title = "VMSwitch.$index.$type.$name"
 
-        $dir  = (Join-Path -Path $OutDir -ChildPath "$title")
+        $dir  =  Join-Path $OutDir $(ConvertTo-Filename $title)
         New-Item -ItemType directory -Path $dir | Out-Null
 
         Write-Host "Processing: $title"
