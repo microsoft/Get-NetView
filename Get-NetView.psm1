@@ -2028,25 +2028,26 @@ function Counters {
     [String []] $cmds = "typeperf -qx"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
-    $file = "CounterDetail.blg"
-    $out  = (Join-Path -Path $dir -ChildPath $file)
-
     # Get paths for counters of interest
-    $pathFilters = @("Hyper-V*", "ICMP*", "*Intel*", "IP*", "*Mellanox*", "Network*", "Physical Network*", "RDMA*", "SMB*", "TCP*", "UDP*","VFP*", "WFP*", "*WinNAT*")
-    $counterSets = $(typeperf -q | foreach {($_ -split "\\")[1]} | Sort-Object -Unique)
+    $file = "CounterDetail.InstancesToQuery.txt"
+    $in = Join-Path $dir $file
 
-    $counterPaths = @()
-    foreach ($set in $counterSets) {
-        foreach ($filter in $pathFilters) {
-            if ($set -like $filter) {
-                $counterPaths += "`"\$set\*`""
-                break
+    $pathFilters = @("\Hyper-V*", "\ICMP*", "*Intel*", "\IP*", "*Mellanox*", "\Network*", "\Physical Network*", "\RDMA*", "\SMB*", "\TCP*", "\UDP*","\VFP*", "\WFP*", "*WinNAT*")
+    $instancesToQuery = typeperf -qx | where {
+        $instance = $_
+        $pathFilters | foreach {
+            if ($instance -like $_) {
+                return $true
             }
         }
+        return $false
     }
+    $instancesToQuery | Out-File -FilePath $in -Encoding ascii
 
     Write-Host "Querying perf counters..."
-    typeperf -f BIN -o $out -sc 10 -si 5 $counterPaths > $null
+    $file = "CounterDetail.csv"
+    $out  = Join-Path $dir $file
+    typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > $null
 } # Counters()
 
 function SystemLogs {
