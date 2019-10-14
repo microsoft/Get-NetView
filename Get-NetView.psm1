@@ -1,4 +1,4 @@
-$Global:Version = "2019.9.14.50"
+$Global:Version = "2019.10.9.57"
 
 $ExecFunctions = {
     $columns   = 4096
@@ -156,6 +156,23 @@ function New-LnkShortcut {
     $null = $lnk.Save()
     $null = [Runtime.Interopservices.Marshal]::ReleaseComObject($shell)
 } # New-LnkShortcut()
+
+<#
+.SYNOPSIS
+    Replaces invalid characters with a placeholder to make a
+    valid directory or filename.
+.NOTES
+    Do not pass in a path. It will replace '\' and '/'.
+#>
+function ConvertTo-Filename {
+    [CmdletBinding()]
+    Param(
+        [parameter(Position=0, Mandatory=$true)] [String] $Filename
+    )
+
+    $invalidChars = [System.IO.Path]::GetInvalidFileNameChars() -join ""
+    return $Filename -replace "[$invalidChars]","_"
+}
 
 function TryCmd {
     [CmdletBinding()]
@@ -627,7 +644,7 @@ function NetAdapterWorkerPrepare {
         $title = "$title.$desc"
     }
 
-    $dir     = (Join-Path -Path $OutDir -ChildPath "$title")
+    $dir     = Join-Path $OutDir $(ConvertTo-Filename $title)
     New-Item -ItemType directory -Path $dir | Out-Null
 
     Write-Host "Processing: $title"
@@ -645,7 +662,8 @@ function LbfoWorker {
 
     $name  = $LbfoName
     $title = "LBFO.$name"
-    $dir   = (Join-Path -Path $OutDir -ChildPath "$title")
+
+    $dir   = Join-Path $OutDir $(ConvertTo-Filename $title)
     New-Item -ItemType directory -Path $dir | Out-Null
 
     Write-Host "Processing: $title"
@@ -1447,7 +1465,8 @@ function HostVNicDetail {
         # Create dir for the hNIC
         $ifIndex = $vnic.InterfaceIndex
         $title   = "hNic.$ifIndex.$($hnic.Name)"
-        $dir     = (Join-Path -Path $OutDir -ChildPath "$title")
+
+        $dir     = Join-Path $OutDir $(ConvertTo-Filename $title)
         New-Item -ItemType directory -Path $dir | Out-Null
 
         Write-Host "Processing: $title"
@@ -1469,7 +1488,8 @@ function VMNetworkAdapterDetail {
     $name  = $VMNicName
     $id    = $VMNicId
     $title = "VMNic.$name.$id"
-    $dir   = (Join-Path -Path $OutDir -ChildPath "$title")
+
+    $dir   = Join-Path $OutDir $(ConvertTo-Filename $title)
     New-Item -ItemType directory -Path $dir | Out-Null
 
     # We must use Id to identity VMNics, because different VMNics
@@ -1598,7 +1618,7 @@ function VMNetworkAdapterPerVM {
         $vmId   = $vm.VMId
         $title  = "VM.$index.$vmName"
 
-        $dir    = (Join-Path -Path $OutDir -ChildPath "$title")
+        $dir    = Join-Path $OutDir $(ConvertTo-Filename $title)
 
         $vmQuery = $false
         foreach ($vmNic in TryCmd {Get-VMNetworkAdapter -VM $vm} | where {$_.SwitchId -eq $VMSwitchId}) {
@@ -1733,7 +1753,7 @@ function VMSwitchDetail {
         $id    = $vmSwitch.Id
         $title = "VMSwitch.$index.$type.$name"
 
-        $dir  = (Join-Path -Path $OutDir -ChildPath "$title")
+        $dir  =  Join-Path $OutDir $(ConvertTo-Filename $title)
         New-Item -ItemType directory -Path $dir | Out-Null
 
         Write-Host "Processing: $title"
@@ -2200,25 +2220,26 @@ function Counters {
     [String []] $cmds = "typeperf -qx"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
-    $file = "CounterDetail.blg"
-    $out  = (Join-Path -Path $dir -ChildPath $file)
-
     # Get paths for counters of interest
-    $pathFilters = @("Hyper-V*", "ICMP*", "*Intel*", "IP*", "*Mellanox*", "Network*", "Physical Network*", "RDMA*", "SMB*", "TCP*", "UDP*","VFP*", "WFP*", "*WinNAT*")
-    $counterSets = $(typeperf -q | foreach {($_ -split "\\")[1]} | Sort-Object -Unique)
+    $file = "CounterDetail.InstancesToQuery.txt"
+    $in = Join-Path $dir $file
 
-    $counterPaths = @()
-    foreach ($set in $counterSets) {
-        foreach ($filter in $pathFilters) {
-            if ($set -like $filter) {
-                $counterPaths += "`"\$set\*`""
-                break
+    $pathFilters = @("\Hyper-V*", "\ICMP*", "*Intel*", "\IP*", "*Mellanox*", "\Network*", "\Physical Network*", "\RDMA*", "\SMB*", "\TCP*", "\UDP*","\VFP*", "\WFP*", "*WinNAT*")
+    $instancesToQuery = typeperf -qx | where {
+        $instance = $_
+        $pathFilters | foreach {
+            if ($instance -like $_) {
+                return $true
             }
         }
+        return $false
     }
+    $instancesToQuery | Out-File -FilePath $in -Encoding ascii
 
     Write-Host "Querying perf counters..."
-    typeperf -f BIN -o $out -sc 10 -si 5 $counterPaths > $null
+    $file = "CounterDetail.csv"
+    $out  = Join-Path $dir $file
+    typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > $null
 } # Counters()
 
 function SystemLogs {
