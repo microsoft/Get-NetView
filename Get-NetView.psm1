@@ -644,7 +644,7 @@ function NetAdapterWorkerPrepare {
         $title = "$title.$desc"
     }
 
-    $dir     = Join-Path $OutDir $(ConvertTo-Filename $title)
+    $dir     = Join-Path $OutDir $(ConvertTo-Filename $title.Trim())
     New-Item -ItemType directory -Path $dir | Out-Null
 
     Write-Host "Processing: $title"
@@ -1158,14 +1158,10 @@ function MarvellDetail{
 
 $MarvellGetDiagDataClass = @"
 using System;
-using Microsoft.Win32.SafeHandles;
 using System.IO;
-using System.Runtime.InteropServices;
-
-using System.Collections.Generic;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 
 public class MarvellGetDiagData
 {
@@ -1189,152 +1185,167 @@ public class MarvellGetDiagData
 
     [DllImport("Kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern SafeFileHandle CreateFile(
-    string lpFileName,
-    [MarshalAs(UnmanagedType.U4)] FileAccess dwDesiredAccess,
-    [MarshalAs(UnmanagedType.U4)] FileShare dwShareMode,
-    IntPtr lpSecurityAttributes,
-    [MarshalAs(UnmanagedType.U4)] FileMode dwCreationDisposition,
-    [MarshalAs(UnmanagedType.U4)] FileAttributes dwFlagsAndAttributes,
-    IntPtr hTemplateFile);
+        string lpFileName,
+        [MarshalAs(UnmanagedType.U4)] FileAccess dwDesiredAccess,
+        [MarshalAs(UnmanagedType.U4)] FileShare dwShareMode,
+        IntPtr lpSecurityAttributes,
+        [MarshalAs(UnmanagedType.U4)] FileMode dwCreationDisposition,
+        [MarshalAs(UnmanagedType.U4)] FileAttributes dwFlagsAndAttributes,
+        IntPtr hTemplateFile);
 
     [DllImport("Kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern bool DeviceIoControl(
-    SafeFileHandle hDevice,
-    uint IoControlCode,
-    ref DiagInput_t InBuffer,
-    int nInBufferSize,
-    byte[] OutBuffer,
-    int nOutBufferSize,
-    ref int pBytesReturned,
-    IntPtr Overlapped
-    );
+        SafeFileHandle hDevice,
+        uint IoControlCode,
+        ref DiagInput_t InBuffer,
+        int nInBufferSize,
+        byte[] OutBuffer,
+        int nOutBufferSize,
+        ref int pBytesReturned,
+        IntPtr Overlapped
+        );
 
-    public int MarvellGetDiagDataIoctl(string dev_path, string file_path, uint MarvellChipCode)
+    public int MarvellGetDiagDataIoctl(string DeviceID, string FilePath, string ServiceName, StringBuilder ErrString)
     {
-        bool result = true;
-        string filename = string.Format("DiagData.bin");
-        uint ioctl_value = 0;
-        string local_path = dev_path;
+        bool bResult;
+        string FileName = string.Format("DiagData.bin");
+        uint data_mask_set;
+        uint ioctl_value;
+        string DevPath;
         int bytesReturned = 0;
-        int bytesSize = BYTE_SIZE;
-        uint data_mask_set = 0;
+        int bufSize = BYTE_SIZE;
+        SafeFileHandle shwnd = null;
+        FileStream file = null;
 
-        if ((dev_path == null) || (file_path == null))
+        if ((DeviceID == null) || (FilePath == null))
         {
-            Console.Write("Input pointers are NULL \n");
+            ErrString.Append("MarvellGetDiagDataIoctl: Input parameter to MarvellGetDiagDataIoctl is invalid");
             return 0;
         }
 
-        local_path = local_path.TrimEnd('\\');
-        if (!local_path.StartsWith(@"\\?\Global\"))
-            local_path = @"\\?\Global\" + local_path;
-
-        if (1 == MarvellChipCode)
+        try
         {
-            data_mask_set = B100_IHV_COLLECT_MASK;
-            ioctl_value   = B100_IOC_GET_IHV_DIAGNOSTIC_DATA;
-            local_path    = local_path + "#{5966d73c-bc2c-49b8-9315-c64c9919e976}";
+            // Generate device path from device id.
+            DevPath = "\\\\?\\Global\\" + DeviceID.Replace("\\","#");
+
+            if (ServiceName.Equals("QEBDRV", StringComparison.OrdinalIgnoreCase))
+            {
+                data_mask_set = B100_IHV_COLLECT_MASK;
+                ioctl_value = B100_IOC_GET_IHV_DIAGNOSTIC_DATA;
+                DevPath += "#{5966d73c-bc2c-49b8-9315-c64c9919e976}";
+            }
+            else if (ServiceName.Equals("EBDRV", StringComparison.OrdinalIgnoreCase))
+            {
+                data_mask_set = B10_IHV_COLLECT_MASK;
+                ioctl_value = B10_IOC_GET_IHV_DIAGNOSTIC_DATA;
+                DevPath += "#{ea22615e-c443-434f-9e45-c4e32d83e97d}";
+            }
+            else
+            {
+                ErrString.Append("MarvellGetDiagDataIoctl: Invalid or not supported Service (" + ServiceName + ")");
+                return 0;
+            }
+
+            shwnd = CreateFile(DevPath, FileAccess.Write | FileAccess.Read, FileShare.Read |
+                FileShare.Write, IntPtr.Zero, FileMode.Open, FileAttributes.Normal, IntPtr.Zero);
+            if (shwnd.IsClosed | shwnd.IsInvalid)
+            {
+                ErrString.Append("MarvellGetDiagDataIoctl: CreateFile failed with error " + Marshal.GetLastWin32Error());
+                return 0;
+            }
+
+            byte[] OutBuffer = new byte[bufSize];
+            Array.Clear(OutBuffer, 0, OutBuffer.Length);
+
+            DiagInput_t InBuffer = new DiagInput_t
+            {
+                revision = IHV_DIAG_REVISION,
+                data_mask = data_mask_set
+            };
+
+            bResult = DeviceIoControl(shwnd, ioctl_value, ref InBuffer, Marshal.SizeOf(InBuffer),
+                OutBuffer, bufSize, ref bytesReturned, IntPtr.Zero);
+            if (bResult)
+            {
+                FilePath += "\\" + FileName;
+
+                file = File.Create(FilePath);
+                file.Write(OutBuffer, 0, bytesReturned);
+            }
+            else
+            {
+                ErrString.Append("MarvellGetDiagDataIoctl: DeviceIoControl failed with error " + Marshal.GetLastWin32Error());
+                bytesReturned = 0;
+            }
         }
-        else
+        catch (Exception e)
         {
-            data_mask_set = B10_IHV_COLLECT_MASK;
-            ioctl_value = B10_IOC_GET_IHV_DIAGNOSTIC_DATA;
-            local_path = local_path + "#{ea22615e-c443-434f-9e45-c4e32d83e97d}";
+            ErrString.Append("MarvellGetDiagDataIoctl: Exception generated: " + e.Message);
+        }
+        finally
+        {
+            if (file != null)
+            {
+                file.Close();
+            }
+            if (shwnd != null)
+            {
+                shwnd.Close();
+            }
         }
 
-        file_path = file_path + "\\";
-        file_path = file_path + filename;
-
-        SafeFileHandle shwnd = CreateFile(local_path, FileAccess.Write | FileAccess.Read, FileShare.Read | FileShare.Write, IntPtr.Zero, FileMode.Open, FileAttributes.Normal, IntPtr.Zero);
-        if (shwnd.IsClosed | shwnd.IsInvalid)
-        {
-            Exception e = Marshal.GetExceptionForHR(Marshal.GetLastWin32Error());
-            Console.Write("Error create file " + Marshal.GetLastWin32Error());
-            return 0;
-        }
-
-        byte[] OutBufptr = new byte[bytesSize];
-        Array.Clear(OutBufptr, 0, OutBufptr.Length);
-
-        DiagInput_t check = new DiagInput_t
-        {
-            revision = IHV_DIAG_REVISION,
-            data_mask = data_mask_set
-        };
-
-        result = DeviceIoControl(shwnd, ioctl_value, ref check, Marshal.SizeOf(check), OutBufptr, bytesSize, ref bytesReturned, IntPtr.Zero);
-        if (false == result)
-        {
-            Exception e = Marshal.GetExceptionForHR(Marshal.GetLastWin32Error());
-            Console.Write("Error DeviceIoControl " + Marshal.GetLastWin32Error());
-        }
-
-        FileStream file = File.Create(file_path);
-        file.Write(OutBufptr, 0, bytesReturned);
-        file.Close();
-
-        shwnd.Close();
-
-        if (result)
-            return bytesReturned;
-
-        return 0;
+        return bytesReturned;
     }
 }
 "@
 
-    $MarvellChipCode = 0;
-    $MarvellVbdService = $null;
-    $MarvellNicService = $null;
+    try
+    {
+        $NDIS_DeviceID = (Get-NetAdapter -Name $NicName).PnPDeviceID
+        $NDIS_Service = (Get-PnpDeviceProperty -InstanceId "$NDIS_DeviceID" -KeyName "DEVPKEY_Device_Service").Data
 
-    $pciId = (Get-NetAdapterAdvancedProperty -Name $NicName -AllProperties -RegistryKeyword "ComponentID").RegistryValue
-    $Marvell_pciId = $pciId.split("\")[0]
-    if ( $Marvell_pciId -eq "EBDRV"){
-        $MarvellChipCode = 0;
-        $MarvellVbdService = "ebdrv";
-        $MarvellNicService = "l2nd";
+        $VBD_DeviceID = (Get-PnpDeviceProperty -InstanceId "$NDIS_DeviceID" -KeyName "DEVPKEY_Device_Parent").Data
+        $VBD_Service = (Get-PnpDeviceProperty -InstanceId "$VBD_DeviceID" -KeyName "DEVPKEY_Device_Service").Data
+    
+        # Collect Marvell related event logs and miscellaneous details
+        $file = "$NicName-Bus.txt"
+        [String []] $cmds = "Get-WinEvent -LogName System | where {`$_.ProviderName -like '$VBD_Service'} | Format-List"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+        $file = "$NicName-Nic.txt"
+        [String []] $cmds = "Get-WinEvent -LogName System | where {`$_.ProviderName -like '$NDIS_Service'} | Format-List"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+        $file = "$NicName-BusVerifierInfo.txt"
+        [String []] $cmds = "verifier /query",
+                            "Get-PnpDeviceProperty -InstanceId '$VBD_DeviceID' | Select-Object KeyName, Data | Format-Table -AutoSize"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+        $file = "$NicName-NicVerifierInfo.txt"
+        [String []] $cmds = "verifier /query",
+                            "Get-PnpDeviceProperty -InstanceId '$NDIS_DeviceID' | Select-Object KeyName, Data | Format-Table -Autosize"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+        TryCmd {Add-Type -TypeDefinition $MarvellGetDiagDataClass -ErrorAction Stop}
+
+        $r = New-Object -TypeName MarvellGetDiagData
+
+        $ErrorString = New-Object -TypeName "System.Text.StringBuilder";
+        $Output = $r.MarvellGetDiagDataIoctl($VBD_DeviceID, $OutDir, $VBD_Service, $ErrorString)
+        if ($Output -le 0 )
+        {
+            ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $ErrorString.ToString()
+        }
     }
-    else{
-        $MarvellChipCode = 1;
-        $MarvellVbdService = "qebdrv";
-        $MarvellNicService = "l2nd2";
+    catch
+    {
+        $msg = $($error[0] | Out-String)
+        ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $msg
     }
-
-    # Collect Marvell related event logs and miscellaneous details
-    $file = "$NicName-Bus.txt"
-    [String []] $cmds = "Get-EventLog -Source $MarvellVbdService -LogName System | Format-List"
-    #"Get-EventLog -LogName System | where { $_.ProviderName -like $MarvellVbdService} | Format-List"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "$NicName-Nic.txt"
-    [String []] $cmds = "Get-EventLog -Source $MarvellNicService -LogName System | Format-List"
-    #"Get-EventLog -LogName System | where { $_.ProviderName -like $MarvellNicService} | Format-List"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "$NicName-BusVerifierInfo.txt"
-    [String []] $cmds = "verifier /query",
-                        "Get-PnpDevice -FriendlyName $MarvellVbdService | Get-PnpDeviceProperty -KeyName DEVPKEY_Device_DriverVersion | Format-Table -Autosize"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "$NicName-NicVerifierInfo.txt"
-    [String []] $cmds = "verifier /query",
-                        "Get-PnpDevice -FriendlyName $MarvellNicService | Get-PnpDeviceProperty -KeyName DEVPKEY_Device_DriverVersion | Format-Table -Autosize"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $MarvellExtension = TryCmd {Add-Type -TypeDefinition $MarvellGetDiagDataClass -ErrorAction Stop}
-
-    $NDIS = (Get-NetAdapter -InterfaceAlias $NicName).InterfaceDescription
-    $NDIS_InstanceID = (Get-PnpDevice -FriendlyName "$NDIS").InstanceId
-    $VBD = Get-PnpDeviceProperty -InstanceId "$NDIS_InstanceID" -KeyName "DEVPKEY_Device_Parent"
-    $VBD_InstanceID = $VBD.Data
-
-    $VBD_InstanceID = $VBD_InstanceID.Replace("\","#")
-
-    $r = New-Object -TypeName MarvellGetDiagData
-
-    $Output = $r.MarvellGetDiagDataIoctl($VBD_InstanceID, $OutDir, $MarvellChipCode)
-
-    Remove-Variable MarvellGetDiagDataClass -ErrorAction SilentlyContinue
+    finally
+    {
+        Remove-Variable MarvellGetDiagDataClass -ErrorAction SilentlyContinue
+    }
 
 } # Marvell Detail
 
@@ -2224,7 +2235,7 @@ function Counters {
     $file = "CounterDetail.InstancesToQuery.txt"
     $in = Join-Path $dir $file
 
-    $pathFilters = @("\Hyper-V*", "\ICMP*", "*Intel*", "\IP*", "*Mellanox*", "\Network*", "\Physical Network*", "\RDMA*", "\SMB*", "\TCP*", "\UDP*","\VFP*", "\WFP*", "*WinNAT*")
+    $pathFilters = @("\Hyper-V*", "\ICMP*", "*Intel*", "*Cavium*", "\IP*", "*Mellanox*", "\Network*", "\Physical Network*", "\RDMA*", "\SMB*", "\TCP*", "\UDP*","\VFP*", "\WFP*", "*WinNAT*")
     $instancesToQuery = typeperf -qx | where {
         $instance = $_
         $pathFilters | foreach {
