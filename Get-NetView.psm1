@@ -2280,16 +2280,20 @@ function Environment {
     [String []] $cmds = "Get-ComputerInfo"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
+    $file = "Verifier.txt"
+    [String []] $cmds = "verifier /querysettings"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+    $file = "Powercfg.txt"
+    [String []] $cmds = "powercfg /List"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
     $file = "Environment.txt"
     [String []] $cmds = "Get-Variable -Name ""PSVersionTable"" -ValueOnly",
                         "date",
                         "Get-CimInstance ""Win32_OperatingSystem"" | select -ExpandProperty ""LastBootUpTime""",
                         "Get-CimInstance ""Win32_Processor"" | Format-List -Property *",
                         "systeminfo"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "Verifier.txt"
-    [String []] $cmds = "verifier /querysettings"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # Environment()
 
