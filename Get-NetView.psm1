@@ -45,7 +45,7 @@ $ExecFunctions = {
         NotTested    # Indicates problem with TestCommand
         Unavailable  # [Part of] the command doesn't exist
         Failed       # An error prevented successful execution
-        Succeeded    # No errors or exceptions
+        Success      # No errors or exceptions
     }
 
     # Powershell cmdlets have inconsistent implementations in command error handling. This function
@@ -57,6 +57,7 @@ $ExecFunctions = {
         )
 
         $status = [CommandStatus]::NotTested
+        $duration = [TimeSpan]::Zero
         $commandOut = ""
 
         try {
@@ -66,8 +67,10 @@ $ExecFunctions = {
             # Any errors will still be output to $error variable.
             $silentCmd = '$({0}) 2>$null 3>&1 4>&1 5>&1 6>&1' -f $Command
 
-            # ErrorAction MUST be Stop for try catch to work.
-            $commandOut = (Invoke-Expression $silentCmd -ErrorAction Stop)
+            $duration = Measure-Command {
+                # ErrorAction MUST be Stop for try catch to work.
+                $commandOut = (Invoke-Expression $silentCmd -ErrorAction Stop)
+            }
 
             # Sometimes commands output errors even on successful execution.
             # We only should fail commands if an error was their *only* output.
@@ -79,18 +82,18 @@ $ExecFunctions = {
                 }
             }
 
-            $status = [CommandStatus]::Succeeded
+            $status = [CommandStatus]::Success
         } catch [Management.Automation.CommandNotFoundException] {
             $status = [CommandStatus]::Unavailable
         } catch {
             $status  = [CommandStatus]::Failed
-            $commandOut = ($error[0] | Out-String)
+            $commandOut = ($_ | Out-String)
         } finally {
             # Post-execution cleanup to avoid false positives
             $error.Clear()
         }
 
-        return $status, $commandOut
+        return $status, $duration.TotalMilliseconds, $commandOut
     } # TestCommand()
 
     function ExecCommand {
@@ -99,22 +102,19 @@ $ExecFunctions = {
             [parameter(Mandatory=$true)] [String] $Command
         )
 
-        $result, $commandOut = TestCommand -Command $Command
+        $status, $duration, $commandOut = TestCommand -Command $Command
+        $duration = ("{0,6:n0}" -f $duration)
 
-        if ($result -eq [CommandStatus]::Succeeded) {
-            ExecCommandText -Command $Command
-            Write-Output $commandOut
-            $cmdLog = $Command
+        ExecCommandText -Command $Command
+        if ($status -eq [CommandStatus]::Success) {
+            $logMsg = "($duration ms) $Command"
         } else {
-            Write-Output "[$result]"
-            Write-Output "$Command"
-            Write-Output "$commandOut"
-            Write-Output "`n`n"
-
-            $cmdLog = "[$result] $Command"
+            $logMsg = "($duration ms) [$status] $Command"
+            Write-Output "[$status]"
         }
+        Write-Output "$commandOut"
 
-        Write-CmdLog "$cmdLog"
+        Write-CmdLog $logMsg
     } # ExecCommand()
 
     function ExecCommands {
@@ -181,17 +181,16 @@ function TryCmd {
 function Write-CmdLog {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $CmdLog
+        [parameter(Mandatory=$false)] [String] $CmdLog
     )
 
     $logColor = [ConsoleColor]::White
-
-    switch -regex ($CmdLog) {
-        "^\[Failed\].*" {
+    switch -Wildcard ($CmdLog) {
+        "*``[Failed``]*" {
             $logColor = [ConsoleColor]::Yellow
             break
         }
-        "^\[Unavailable\].*" {
+        "*``[Unavailable``]*" {
             $logColor = [ConsoleColor]::Gray
             break
         }
@@ -2383,10 +2382,10 @@ function Get-NetView {
         # Wait for threads to complete
         Show-Threads -Threads $threads
     } catch {
-        $msg = $($error[0] | Out-String)
+        $msg = $($_ | Out-String)
         ExecControlError -OutDir $workDir -Function "Get-NetView" -Message $msg
 
-        throw $error[0]
+        throw $_
     } finally {
         Close-GlobalThreadPool
 
