@@ -114,7 +114,7 @@ $ExecFunctions = {
         }
         Write-Output "$commandOut"
 
-        Write-CmdLog $logMsg
+        Write-CmdLog "$logMsg"
     } # ExecCommand()
 
     function ExecCommands {
@@ -181,7 +181,7 @@ function TryCmd {
 function Write-CmdLog {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$false)] [String] $CmdLog
+        [parameter(Mandatory=$true)] [String] $CmdLog
     )
 
     $logColor = [ConsoleColor]::White
@@ -2109,7 +2109,7 @@ function Sanity {
     New-Item -ItemType directory -Path $dir | Out-Null
 
     $file = "Get-ChildItem.txt"
-    [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude $file, Get-NetView.log -File -Recurse | Get-FileHash | Format-Table -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash | Format-Table -AutoSize | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
     $file = "Metadata.txt"
@@ -2186,7 +2186,7 @@ function EnvCreate {
     try {
         New-Item -ItemType directory -Path $OutDir -ErrorAction Stop | Out-Null
     } catch {
-        throw "Get-NetView : Failed to create directory ""$OutDir"" because " + $_
+        throw "Get-NetView : Failed to create directory ""$OutDir"" because " + $error[0]
     }
 } # EnvCreate()
 
