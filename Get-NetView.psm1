@@ -2109,7 +2109,7 @@ function Sanity {
     New-Item -ItemType directory -Path $dir | Out-Null
 
     $file = "Get-ChildItem.txt"
-    [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude $file -Recurse | Get-FileHash | Format-Table -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude $file, Get-NetView.log -File -Recurse | Get-FileHash | Format-Table -AutoSize | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
     $file = "Metadata.txt"
@@ -2186,7 +2186,7 @@ function EnvCreate {
     try {
         New-Item -ItemType directory -Path $OutDir -ErrorAction Stop | Out-Null
     } catch {
-        throw "Get-NetView : Failed to create directory ""$OutDir"" because " + $error[0]
+        throw "Get-NetView : Failed to create directory ""$OutDir"" because " + $_
     }
 } # EnvCreate()
 
@@ -2202,6 +2202,8 @@ function Initialization {
     # Setup output folder
     EnvDestroy $OutDir
     EnvCreate $OutDir
+
+    Start-Transcript -Path "$OutDir\Get-NetView.log"
 
     Clear-Host
 } # Initialization()
@@ -2228,6 +2230,8 @@ function Completion {
     )
 
     $timestamp = $start | Get-Date -f yyyy.MM.dd_hh.mm.ss
+
+    Stop-Transcript
 
     # Zip output folder
     $outzip = "$Src-$timestamp.zip"
