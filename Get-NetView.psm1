@@ -112,7 +112,7 @@ $ExecFunctions = {
             $logMsg = "($duration ms) [$status] $Command"
             Write-Output "[$status]"
         }
-        Write-Output "$commandOut"
+        Write-Output $commandOut
 
         Write-CmdLog "$logMsg"
     } # ExecCommand()
