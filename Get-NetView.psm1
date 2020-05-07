@@ -2461,7 +2461,7 @@ function Completion {
 
     $timestamp = $start | Get-Date -f yyyy.MM.dd_hh.mm.ss
 
-    Stop-Transcript
+    Stop-Transcript -ErrorAction "SilentlyContinue"
 
     # Zip output folder
     $outzip = "$Src-$timestamp.zip"
