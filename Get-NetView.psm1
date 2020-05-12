@@ -982,50 +982,39 @@ function MellanoxWinOFTool{
 
     $toolName = "mlxtool.exe"
     $toolPath = "$env:ProgramFiles\Mellanox\MLNX_VPI\Tools\$toolName"
-    $toolCmd = "&""$toolPath"""
+    $mlxTool = "&""$toolPath"""
 
     $hardwareInfo = Get-NetAdapterHardwareInfo -Name $NicName
     $deviceLocation = "$($hardwareInfo.bus)`_$($hardwareInfo.device)`_$($hardwareInfo.function)"
 
-    $showArgs = "ports",
-                "devices",
-                "tc-bw",
-                "vxlan",
-                "ecn config",
-                "packet-filter",
-                "qos",
-                "regkeys all miniport",
-                "regkeys all bus",
-                "nd connections",
-                "ndk connections",
-                "perfstats ""$NicName"" showall",
-                "driverparams",
-                "selfhealing port"
+    $toolCmds = "$mlxTool show ports",
+                "$mlxTool show devices",
+                "$mlxTool show tc-bw",
+                "$mlxTool show vxlan",
+                "$mlxTool show ecn config",
+                "$mlxTool show packet-filter",
+                "$mlxTool show qos",
+                "$mlxTool show regkeys all miniport",
+                "$mlxTool show regkeys all bus",
+                "$mlxTool show nd connections",
+                "$mlxTool show ndk connections",
+                "$mlxTool show perfstats ""$NicName"" showall",
+                "$mlxTool show driverparams",
+                "$mlxTool show selfhealing port",
+                "$mlxTool dbg oid-stats-ext",
+                "$mlxTool dbg cmd-stats-ext",
+                "$mlxTool dbg resources",
+                "$mlxTool dbg pkeys",
+                "$mlxTool dbg ipoib-ep",
+                "$mlxTool dbg get-state",
+                "$mlxTool dbg rfd-profiling ""$NicName"" dump",
+                "$mlxTool dbg pddrinfo",
+                "$mlxTool dbg dump-me-now",
+                "$mlxTool dbg eq-data ""$deviceLocation""",
+                "$mlxTool dbg dma-cached-stats ""$deviceLocation"""
 
-    $dbgArgs = "oid-stats-ext",
-               "cmd-stats-ext",
-               "resources",
-               "pkeys",
-               "ipoib-ep",
-               "get-state",
-               "rfd-profiling ""$NicName"" dump",
-               "pddrinfo",
-               "dump-me-now",
-               "eq-data ""$deviceLocation""",
-               "dma-cached-stats ""$deviceLocation"""
-
-    [String []] $runCmds = @()
-    foreach ($arg in $showArgs)
-    {
-        $runCmds += $toolCmd + " show " + $arg
-    }
-
-    foreach ($arg in $dbgArgs)
-    {
-        $runCmds += $toolCmd + " dbg " + $arg
-    }
     $file = "mlxtoolOutput.txt"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $runCmds
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $toolCmds
 
 } # MellanoxWinOFTool
 
@@ -1071,9 +1060,8 @@ function MellanoxDetailPerNic {
     # Execute tool
     #
 
-    $DriverName = $( if($driverFileName -eq "Mlx5.sys" -or $driverFileName -eq "Mlnx5.sys" -or $driverFileName -eq "Mlnx5Hpc.sys") {"WinOF2"} else {"WinOF"})
-    if ($DriverName -eq "WinOF2")
-    {
+    $DriverName = $( if ($driverFileName -in @("Mlx5.sys", "Mlnx5.sys", "Mlnx5Hpc.sys")) {"WinOF2"} else {"WinOF"})
+    if ($DriverName -eq "WinOF2"){
         $toolName = $driverFileName -replace ".sys", "Cmd"
         $toolPath = "$driverDir\Management Tools\$toolName.exe"
 
@@ -1085,8 +1073,7 @@ function MellanoxDetailPerNic {
         }
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
     }
-    else
-    {
+    else{
         MellanoxWinOFTool -NicName $NicName -OutDir $Dir
     }
 
@@ -1132,8 +1119,7 @@ function MellanoxDetailPerNic {
 
     ExecCopyItemsAsync -OutDir $dir -File $file -Paths $buildIdPath -Destination $destination
 
-    if ($DriverName -eq "WinOF2")
-    {
+    if ($DriverName -eq "WinOF2"){
         [String[]] $paths = "$env:windir\Temp\SingleFunc*$deviceLocation*.log",
                             "$env:windir\Temp\SriovMaster*$deviceLocation*.log",
                             "$env:windir\Temp\SriovSlave*$deviceLocation*.log",
@@ -1154,13 +1140,11 @@ function MellanoxSystemDetail {
 
     $dir = Join-Path $OutDir "SystemLogs"
 
-    if ([String]::IsNullOrEmpty($Global:MellanoxSystemLogDir))
-    {
+    if ([String]::IsNullOrEmpty($Global:MellanoxSystemLogDir)){
         $Global:MellanoxSystemLogDir = $dir
         $null = New-Item -ItemType Directory -Path $dir
     }
-    else
-    {
+    else{
         New-LnkShortcut -LnkFile "$dir.lnk" -TargetPath $Global:MellanoxSystemLogDir
         return # avoid duplicate effort
     }
@@ -1176,48 +1160,47 @@ function MellanoxSystemDetail {
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
     $driverFileName = (Get-NetAdapter -name $NicName).DriverFileName
-    $DriverName = $( if($driverFileName -eq "Mlx5.sys" -or $driverFileName -eq "Mlnx5.sys" -or $driverFileName -eq "Mlnx5Hpc.sys") {"WinOF2"} else {"WinOF"})
-    if($DriverName -eq "WinOF2")
-    {
-        $file = "Get-WinEvent-mlx5.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlx5""} | Format-List -Property *"
+    $DriverName = $( if ($driverFileName -in @("Mlx5.sys", "Mlnx5.sys", "Mlnx5Hpc.sys")) {"WinOF2"} else {"WinOF"})
+    if($PrintEvents){
+        if($DriverName -eq "WinOF2"){
+            $file = "Get-WinEvent-mlx5.txt"
+            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlx5""} | Format-List -Property *"
+            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+            $file = "Get-WinEvent-mlnx5.txt"
+            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlnx5""} | Format-List -Property *"
+            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+            $file = "Get-WinEvent-mlnx5hpc.txt"
+            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlnx5hpc""} | Format-List -Property *"
+            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+        }
+        else{
+            $file = "Get-WinEvent-mlx4_bus.txt"
+            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlx4_bus""} | Format-List -Property *"
+            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+            $file = "Get-WinEvent-ib_bus.txt"
+            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""ibbus""} | Format-List -Property *"
+            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+            $file = "Get-WinEvent-mlx4eth63.txt"
+            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlx4eth63""} | Format-List -Property *"
+            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+            $file = "Get-WinEvent-ipoib6x.txt"
+            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""ipoib6x""} | Format-List -Property *"
+            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+        }
+
+        $file = "Get-WinEvent-Application.txt"
+        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""application""} | Format-List -Property *"
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
-        $file = "Get-WinEvent-mlnx5.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlnx5""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-        $file = "Get-WinEvent-mlnx5hpc.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlnx5hpc""} | Format-List -Property *"
+        $file = "Get-WinEvent-Setup.txt"
+        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""Setup""} | Format-List -Property *"
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
     }
-    else
-    {
-        $file = "Get-WinEvent-mlx4_bus.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlx4_bus""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-        $file = "Get-WinEvent-ib_bus.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""ibbus""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-        $file = "Get-WinEvent-mlx4eth63.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlx4eth63""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-        $file = "Get-WinEvent-ipoib6x.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""ipoib6x""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-    }
-
-
-    $file = "Get-WinEvent-Application.txt"
-    [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""application""} | Format-List -Property *"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "Get-WinEvent-Setup.txt"
-    [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""Setup""} | Format-List -Property *"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Copy-LogFiles.txt"
     $destination = Join-Path $dir "LogFiles"
