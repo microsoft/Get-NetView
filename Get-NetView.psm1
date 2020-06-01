@@ -850,14 +850,14 @@ function ChelsioDetail {
 
     # Collect Chelsio related event logs and miscellaneous details
     $file = "ChelsioDetail-WinEvent-BusDevice.txt"
-    [String []] $cmds = "Get-WinEvent -LogName System | where {`$_.ProviderName -like ""*chvbd*""} | Format-List",
-                        "Get-WinEvent -LogName System | where {`$_.ProviderName -like ""*cht4vbd*""} | Format-List"
+    [String []] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""chvbd""} | Format-List",
+                        "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""cht4vbd""} | Format-List"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "ChelsioDetail-WinEvent-NetDevice.txt"
-    [String []] $cmds = "Get-WinEvent -LogName System | where {`$_.ProviderName -like ""*chndis*""} | Format-List",
-                        "Get-WinEvent -LogName System | where {`$_.ProviderName -like ""*chnet*""} | Format-List",
-                        "Get-WinEvent -LogName System | where {`$_.ProviderName -like ""*cht4ndis*""} | Format-List"
+    [String []] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""chndis""} | Format-List",
+                        "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""chnet""} | Format-List",
+                        "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""cht4ndis""} | Format-List"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "ChelsioDetail-Misc.txt"
@@ -1143,8 +1143,7 @@ function MellanoxSystemDetail {
     if ([String]::IsNullOrEmpty($Global:MellanoxSystemLogDir)){
         $Global:MellanoxSystemLogDir = $dir
         $null = New-Item -ItemType Directory -Path $dir
-    }
-    else{
+    } else {
         New-LnkShortcut -LnkFile "$dir.lnk" -TargetPath $Global:MellanoxSystemLogDir
         return # avoid duplicate effort
     }
@@ -1160,45 +1159,35 @@ function MellanoxSystemDetail {
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
     $driverFileName = (Get-NetAdapter -name $NicName).DriverFileName
-    $DriverName = $( if ($driverFileName -in @("Mlx5.sys", "Mlnx5.sys", "Mlnx5Hpc.sys")) {"WinOF2"} else {"WinOF"})
-    if($PrintEvents){
-        if($DriverName -eq "WinOF2"){
-            $file = "Get-WinEvent-mlx5.txt"
-            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlx5""} | Format-List -Property *"
-            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    $DriverName = $(if ($driverFileName -in @("Mlx5.sys", "Mlnx5.sys", "Mlnx5Hpc.sys")) {"WinOF2"} else {"WinOF"})
 
-            $file = "Get-WinEvent-mlnx5.txt"
-            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlnx5""} | Format-List -Property *"
-            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-            $file = "Get-WinEvent-mlnx5hpc.txt"
-            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlnx5hpc""} | Format-List -Property *"
-            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-        }
-        else{
-            $file = "Get-WinEvent-mlx4_bus.txt"
-            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlx4_bus""} | Format-List -Property *"
-            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-            $file = "Get-WinEvent-ib_bus.txt"
-            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""ibbus""} | Format-List -Property *"
-            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-            $file = "Get-WinEvent-mlx4eth63.txt"
-            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""mlx4eth63""} | Format-List -Property *"
-            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-            $file = "Get-WinEvent-ipoib6x.txt"
-            [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""system"";providername=""ipoib6x""} | Format-List -Property *"
-            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-        }
-
-        $file = "Get-WinEvent-Application.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""application""} | Format-List -Property *"
+    if ($DriverName -eq "WinOF2"){
+        $file = "Get-WinEvent-mlx5.txt"
+        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""mlx5""} | Format-List -Property *"
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
-        $file = "Get-WinEvent-Setup.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{logname=""Setup""} | Format-List -Property *"
+        $file = "Get-WinEvent-mlnx5.txt"
+        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""mlnx5""} | Format-List -Property *"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+        $file = "Get-WinEvent-mlnx5hpc.txt"
+        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""mlnx5hpc""} | Format-List -Property *"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    } else {
+        $file = "Get-WinEvent-mlx4_bus.txt"
+        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""mlx4_bus""} | Format-List -Property *"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+        $file = "Get-WinEvent-ib_bus.txt"
+        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""ibbus""} | Format-List -Property *"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+        $file = "Get-WinEvent-mlx4eth63.txt"
+        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""mlx4eth63""} | Format-List -Property *"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+        $file = "Get-WinEvent-ipoib6x.txt"
+        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""ipoib6x""} | Format-List -Property *"
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
     }
 
@@ -1405,11 +1394,11 @@ public class MarvellGetDiagData
     
         # Collect Marvell related event logs and miscellaneous details
         $file = "$NicName-Bus.txt"
-        [String []] $cmds = "Get-WinEvent -LogName System | where {`$_.ProviderName -like '$VBD_Service'} | Format-List"
+        [String []] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""$VBD_Service""} | Format-List"
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
         $file = "$NicName-Nic.txt"
-        [String []] $cmds = "Get-WinEvent -LogName System | where {`$_.ProviderName -like '$NDIS_Service'} | Format-List"
+        [String []] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""$NDIS_Service'} | Format-List"
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
         $file = "$NicName-BusVerifierInfo.txt"
@@ -2009,7 +1998,7 @@ function SMBDetail {
 
     $file = "Smb-WindowsEvents.txt"
     [String []] $cmds = "Get-WinEvent -ListLog ""*SMB*"" | Format-List -Property *",
-                        "Get-WinEvent -ListLog ""*SMB*"" | Get-WinEvent | ? Message -like ""*RDMA*"" | Format-List -Property *"
+                        "Get-WinEvent -ProviderName ""*SMB*"" | where {`$_.Message -like ""*RDMA*""} | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # SMBDetail()
 
@@ -2648,16 +2637,6 @@ function Completion {
 .EXAMPLE
     Get-NetView -SkipAdminCheck
     Runs Get-NetView without verifying administrator privileges and outputs to the Desktop.
-
-.NOTES
-    Feature Request List
-        - Get-WinEvent and system logs: https://technet.microsoft.com/en-us/library/dd367894.aspx?f=255&MSPPError=-2147217396
-        - Convert NetSH to NetEvent PS calls.
-        - Perf Profile acqusition
-        - Remote powershell support
-        - Cluster member execution support via remote powershell
-        - See this command to get VFs on vSwitch (see text in below functions)
-            > Get-NetAdapterSriovVf -SwitchId 2
 
 .LINK
     https://github.com/microsoft/Get-NetView
