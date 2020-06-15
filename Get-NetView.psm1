@@ -848,18 +848,6 @@ function ChelsioDetail {
     $dir = (Join-Path -Path $OutDir -ChildPath "ChelsioDetail")
     New-Item -ItemType Directory -Path $dir | Out-Null
 
-    # Collect Chelsio related event logs and miscellaneous details
-    $file = "ChelsioDetail-WinEvent-BusDevice.txt"
-    [String []] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""chvbd""} | Format-List",
-                        "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""cht4vbd""} | Format-List"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "ChelsioDetail-WinEvent-NetDevice.txt"
-    [String []] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""chndis""} | Format-List",
-                        "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""chnet""} | Format-List",
-                        "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""cht4ndis""} | Format-List"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
     $file = "ChelsioDetail-Misc.txt"
     [String []] $cmds = "verifier /query",
                         "Get-PnpDevice -FriendlyName ""*Chelsio*Enumerator*"" | Get-PnpDeviceProperty -KeyName DEVPKEY_Device_DriverVersion | Format-Table -Autosize"
@@ -1064,7 +1052,6 @@ function MellanoxDetailPerNic {
     if ($DriverName -eq "WinOF2"){
         $toolName = $driverFileName -replace ".sys", "Cmd"
         $toolPath = "$driverDir\Management Tools\$toolName.exe"
-
     
         $file = "$toolName-Snapshot.txt"
         [String []] $cmds = "&""$toolPath"" -SnapShot -name ""$NicName"""
@@ -1072,8 +1059,7 @@ function MellanoxDetailPerNic {
             $cmds += "&""$toolPath"" -SnapShot -VfStats -name ""$NicName"" -vf $_ -register"
         }
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-    }
-    else{
+    } else {
         MellanoxWinOFTool -NicName $NicName -OutDir $Dir
     }
 
@@ -1106,7 +1092,7 @@ function MellanoxDetailPerNic {
     }
 
     $file = "Copy-MellanoxDMN.txt"
-    [String[]] $paths = "$dmpPath{0}" -f $(if ($DriverName -eq "WinOF2"){("-" + $deviceLocation -replace "_","-")})
+    [String[]] $paths = "$dmpPath{0}" -f $(if ($DriverName -eq "WinOF2") {("-" + $deviceLocation -replace "_","-")})
     ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $dir
 
     #
@@ -1159,37 +1145,7 @@ function MellanoxSystemDetail {
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
     $driverFileName = (Get-NetAdapter -name $NicName).DriverFileName
-    $DriverName = $(if ($driverFileName -in @("Mlx5.sys", "Mlnx5.sys", "Mlnx5Hpc.sys")) {"WinOF2"} else {"WinOF"})
-
-    if ($DriverName -eq "WinOF2"){
-        $file = "Get-WinEvent-mlx5.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""mlx5""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-        $file = "Get-WinEvent-mlnx5.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""mlnx5""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-        $file = "Get-WinEvent-mlnx5hpc.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""mlnx5hpc""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-    } else {
-        $file = "Get-WinEvent-mlx4_bus.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""mlx4_bus""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-        $file = "Get-WinEvent-ib_bus.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""ibbus""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-        $file = "Get-WinEvent-mlx4eth63.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""mlx4eth63""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-        $file = "Get-WinEvent-ipoib6x.txt"
-        [String[]] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""ipoib6x""} | Format-List -Property *"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-    }
+    $DriverName = if ($driverFileName -in @("Mlx5.sys", "Mlnx5.sys", "Mlnx5Hpc.sys")) {"WinOF2"} else {"WinOF"}
 
     $file = "Copy-LogFiles.txt"
     $destination = Join-Path $dir "LogFiles"
@@ -1216,9 +1172,6 @@ function MellanoxDetail {
 
     $dir = (Join-Path -Path $OutDir -ChildPath "MellanoxDetail")
     New-Item -ItemType Directory -Path $dir | Out-Null
-
-
-    # Collect Mellanox related event logs and miscellaneous details
 
     $driverVersionString = (Get-NetAdapter -name $NicName).DriverVersionString
     $versionMajor, $versionMinor, $_ = $driverVersionString -split "\."
@@ -1384,22 +1337,10 @@ public class MarvellGetDiagData
 }
 "@
 
-    try
-    {
+    try {
         $NDIS_DeviceID = (Get-NetAdapter -Name $NicName).PnPDeviceID
-        $NDIS_Service = (Get-PnpDeviceProperty -InstanceId "$NDIS_DeviceID" -KeyName "DEVPKEY_Device_Service").Data
-
         $VBD_DeviceID = (Get-PnpDeviceProperty -InstanceId "$NDIS_DeviceID" -KeyName "DEVPKEY_Device_Parent").Data
         $VBD_Service = (Get-PnpDeviceProperty -InstanceId "$VBD_DeviceID" -KeyName "DEVPKEY_Device_Service").Data
-    
-        # Collect Marvell related event logs and miscellaneous details
-        $file = "$NicName-Bus.txt"
-        [String []] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""$VBD_Service""} | Format-List"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-        $file = "$NicName-Nic.txt"
-        [String []] $cmds = "Get-WinEvent -FilterHashTable @{LogName=""System""; ProviderName=""$NDIS_Service'} | Format-List"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
         $file = "$NicName-BusVerifierInfo.txt"
         [String []] $cmds = "verifier /query",
@@ -1415,20 +1356,15 @@ public class MarvellGetDiagData
 
         $r = New-Object -TypeName MarvellGetDiagData
 
-        $ErrorString = New-Object -TypeName "System.Text.StringBuilder";
-        $Output = $r.MarvellGetDiagDataIoctl($VBD_DeviceID, $OutDir, $VBD_Service, $ErrorString)
-        if ($Output -le 0 )
-        {
-            ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $ErrorString.ToString()
+        $rrrorString = New-Object -TypeName "System.Text.StringBuilder";
+        $Output = $r.MarvellGetDiagDataIoctl($VBD_DeviceID, $OutDir, $VBD_Service, $rrrorString)
+        if ($Output -le 0) {
+            ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $rrrorString.ToString()
         }
-    }
-    catch
-    {
+    } catch {
         $msg = $($error[0] | Out-String)
         ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $msg
-    }
-    finally
-    {
+    } finally {
         Remove-Variable MarvellGetDiagDataClass -ErrorAction SilentlyContinue
     }
 
@@ -1998,7 +1934,8 @@ function SMBDetail {
 
     $file = "Smb-WindowsEvents.txt"
     [String []] $cmds = "Get-WinEvent -ListLog ""*SMB*"" | Format-List -Property *",
-                        "Get-WinEvent -ProviderName ""*SMB*"" | where {`$_.Message -like ""*RDMA*""} | Format-List -Property *"
+                        "Get-WinEvent -FilterHashtable @{LogName=""Microsoft-Windows-SMB*""; ProviderName=""Microsoft-Windows-SMB*""} | where {`$_.Message -like ""*RDMA*""} | Format-List -Property *"
+
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # SMBDetail()
 
@@ -2553,25 +2490,16 @@ function Completion {
 
     $timestamp = $start | Get-Date -f yyyy.MM.dd_hh.mm.ss
 
-    Stop-Transcript -ErrorAction "SilentlyContinue"
-
-    # Zip output folder
-    $outzip = "$Src-$timestamp.zip"
-    CreateZip -Src $Src -Out $outzip
-
     $dirs = (Get-ChildItem $Src -Recurse | Measure-Object -Property length -Sum) # out folder size
     $hash = (Get-FileHash -Path $MyInvocation.PSCommandPath -Algorithm "SHA256").Hash # script hash
 
     # Display version and file save location
-    Write-Host "`n"
+    Write-Host ""
     Write-Host "Diagnostics Data:"
     Write-Host "-----------------"
     Write-Host "Get-NetView"
     Write-Host "Version: $($Global:Version)"
     Write-Host "SHA256:  $(if ($hash) {$hash} else {"N/A"})"
-    Write-Host ""
-    Write-Host $outzip
-    Write-Host "Size:    $("{0:N2} MB" -f ((Get-Item $outzip).Length / 1MB))"
     Write-Host ""
     Write-Host $Src
     Write-Host "Size:    $("{0:N2} MB" -f ($dirs.sum / 1MB))"
@@ -2582,7 +2510,16 @@ function Completion {
     Write-Host "---------------"
     $delta = (Get-Date) - $Start
     Write-Host "$($delta.Minutes) Min $($delta.Seconds) Sec"
-    Write-Host "`n"
+    Write-Host ""
+
+    TryCmd {Stop-Transcript}
+
+    Write-Host "Creating zip..."
+    $outzip = "$Src-$timestamp.zip"
+    CreateZip -Src $Src -Out $outzip
+    Write-Host $outzip
+    Write-Host "Size:    $("{0:N2} MB" -f ((Get-Item $outzip).Length / 1MB))"
+    Write-Host ""
 } # Completion()
 
 <#
