@@ -260,7 +260,7 @@ function Start-Thread {
         $ps = [PowerShell]::Create()
 
         $ps.RunspacePool = $Global:ThreadPool
-        $null = $ps.AddScript("Set-Location $(Get-Location)")
+        $null = $ps.AddScript("Set-Location `"$(Get-Location)`"")
         $null = $ps.AddScript($ExecFunctions) # import into thread context
         $null = $ps.AddScript($ScriptBlock, $true).AddParameters($Params)
 
