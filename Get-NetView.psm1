@@ -1831,7 +1831,7 @@ function NetworkSummary {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapter.txt"
-    [String []] $cmds = "Get-NetAdapter | Sort-Object InterfaceDescription | Format-Table -AutoSize | Out-String -Width $columns ",
+    [String []] $cmds = "Get-NetAdapter -IncludeHidden | Sort-Object InterfaceDescription | Format-Table -AutoSize | Out-String -Width $columns ",
                         "Get-NetAdapter -IncludeHidden | Sort-Object InterfaceDescription | Format-Table -Property * -AutoSize | Out-String -Width $columns"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
