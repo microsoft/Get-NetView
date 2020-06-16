@@ -1707,6 +1707,10 @@ function VMSwitchWorker {
     $file = "Get-VMSwitchTeam.txt"
     [String []] $cmds = "Get-VMSwitchTeam -VMSwitch $vmSwitchObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+    $file = "Get-VMNetworkAdapterTeamMapping.txt"
+    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -ManagementOS -SwitchName $vmSwitchObject | Format-List -Property *"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # VMSwitchWorker()
 
 function VfpExtensionDetail {
