@@ -631,9 +631,10 @@ function NetAdapterWorkerPrepare {
     )
 
     $name = $NicName
+    $dir  = $OutDir
 
     # Create dir for each NIC
-    $nic     = Get-NetAdapter -Name $name
+    $nic     = Get-NetAdapter -Name $name -IncludeHidden
     $idx     = $nic.InterfaceIndex
     $desc    = $nic.InterfaceDescription
     $title   = "pNic.$idx.$name"
@@ -641,13 +642,18 @@ function NetAdapterWorkerPrepare {
         $title = "$title.$desc"
     }
 
-    $dir     = Join-Path $OutDir $(ConvertTo-Filename $title.Trim())
+    if ($nic.Hidden) {
+        $dir = Join-Path $dir "pNic.Hidden"
+    }
+    $dir = Join-Path $dir $(ConvertTo-Filename $title.Trim())
     New-Item -ItemType directory -Path $dir | Out-Null
 
     Write-Host "Processing: $title"
     NetIpNic         -NicName $name -OutDir $dir
     NetAdapterWorker -NicName $name -OutDir $dir
-    NicVendor        -NicName $name -OutDir $dir
+    if (-not $nic.Hidden) {
+        NicVendor    -NicName $name -OutDir $dir
+    }
 } # NetAdapterWorkerPrepare()
 
 function LbfoWorker {
@@ -750,7 +756,7 @@ function NativeNicDetail {
     $vmsNicNames = TryCmd {(Get-NetAdapterBinding -ComponentID "vms_pp" | where {$_.Enabled -eq $true}).Name}
     $lbfoNicNames = TryCmd {(Get-NetLbfoTeamMember).Name}
 
-    foreach ($nic in Get-NetAdapter) {
+    foreach ($nic in Get-NetAdapter -IncludeHidden) {
         $native = $true
 
         # Skip vSwitch Host vNICs by checking the driver
