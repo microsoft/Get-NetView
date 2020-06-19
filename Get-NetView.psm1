@@ -637,16 +637,18 @@ function NetAdapterWorkerPrepare {
     $dir  = $OutDir
 
     # Create dir for each NIC
-    $nic     = Get-NetAdapter -Name $name -IncludeHidden
-    $idx     = $nic.InterfaceIndex
-    $desc    = $nic.InterfaceDescription
-    $title   = "pNic.$idx.$name"
+    $nic   = Get-NetAdapter -Name $name -IncludeHidden
+    $type  = if (Get-NetAdapterHardwareInfo -Name $name -IncludeHidden -ErrorAction "SilentlyContinue") {"pNIC"} else {"NIC"}
+    $idx   = $nic.InterfaceIndex
+    $desc  = $nic.InterfaceDescription
+    $title = "$type.$idx.$name"
+
     if ("$desc") {
         $title = "$title.$desc"
     }
 
     if ($nic.Hidden) {
-        $dir = Join-Path $dir "pNic.Hidden"
+        $dir = Join-Path $dir "NIC.Hidden"
     }
     $dir = Join-Path $dir $(ConvertTo-Filename $title.Trim())
     New-Item -ItemType directory -Path $dir | Out-Null
@@ -2454,12 +2456,8 @@ function EnvCreate {
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
-    # Attempt to create working directory, fail gracefully otherwise
-    try {
-        New-Item -ItemType directory -Path $OutDir -ErrorAction Stop | Out-Null
-    } catch {
-        throw "Get-NetView : Failed to create directory ""$OutDir"" because " + $error[0]
-    }
+    # Attempt to create working directory, stopping on failure.
+    New-Item -ItemType directory -Path $OutDir -ErrorAction Stop | Out-Null
 } # EnvCreate()
 
 function Initialization {
