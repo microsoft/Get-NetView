@@ -127,6 +127,11 @@ $ExecFunctions = {
 
         $out = (Join-Path -Path $OutDir -ChildPath $File)
         $($Commands | foreach {ExecCommand -Command $_}) | Out-File -Encoding ascii -Append $out
+
+        # With high-concurreny, WMI-based cmdlets sometimes output in an
+        # incorrect format or with missing fields. Somehow, this helps
+        # reduce the frequency of the problem.
+        $null = Get-NetAdapter
     } # ExecCommands()
 } # $ExecFunctions
 
@@ -571,8 +576,8 @@ function NetAdapterWorker {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterQos.txt"
-    [String []] $cmds = "Get-NetAdapterQos -Name ""$name"" -IncludeHidden -ErrorAction SilentlyContinue | Out-String -Width $columns",
-                        "Get-NetAdapterQos -Name ""$name"" -IncludeHidden -ErrorAction SilentlyContinue | Format-List -Property *"
+    [String []] $cmds = "Get-NetAdapterQos -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+                        "Get-NetAdapterQos -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommands -OutDir $dir -File $file -Commands $cmds # Get-NetAdapterQos has severe concurrency issues
 
     $file = "Get-NetAdapterRdma.txt"
