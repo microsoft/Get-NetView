@@ -287,8 +287,7 @@ function Show-Threads {
             $thread.Powershell.Streams.Information | foreach {Write-CmdLog "$_"}
             $thread.Powershell.Streams.Information.Clear()
 
-            if ($thread.AsyncResult.IsCompleted)
-            {
+            if ($thread.AsyncResult.IsCompleted) {
                 # Accessing Streams.Error blocks until thread is completed
                 $thread.Powershell.Streams.Error | Out-Host
                 $thread.Powershell.Streams.Error.Clear()
@@ -517,109 +516,108 @@ function NetAdapterWorker {
 
     $file = "Get-NetAdapter.txt"
     [String []] $cmds = "Get-NetAdapter -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapter -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapter -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterAdvancedProperty.txt"
-    [String []] $cmds = "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties | Sort-Object RegistryKeyword | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Sort-Object RegistryKeyword | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Format-List  -Property *",
-                        "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Format-Table  -Property * | Out-String -Width $columns"
+    [String []] $cmds = "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Sort-Object RegistryKeyword | Format-Table -AutoSize | Out-String -Width $columns",
+                        "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Format-List -Property *",
+                        "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Format-Table -Property * | Out-String -Width $columns"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterBinding.txt"
     [String []] $cmds = "Get-NetAdapterBinding -Name ""$name"" -AllBindings -IncludeHidden | Sort-Object ComponentID | Out-String -Width $columns",
-                        "Get-NetAdapterBinding -Name ""$name"" -AllBindings -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterBinding -Name ""$name"" -AllBindings -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterChecksumOffload.txt"
     [String []] $cmds = "Get-NetAdapterChecksumOffload -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterChecksumOffload -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterChecksumOffload -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterLso.txt"
     [String []] $cmds = "Get-NetAdapterLso -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterLso -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterLso -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterRss.txt"
     [String []] $cmds = "Get-NetAdapterRss -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterRss -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterRss -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterStatistics.txt"
     [String []] $cmds = "Get-NetAdapterStatistics -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterStatistics -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterStatistics -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterEncapsulatedPacketTaskOffload.txt"
     [String []] $cmds = "Get-NetAdapterEncapsulatedPacketTaskOffload -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterEncapsulatedPacketTaskOffload -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterEncapsulatedPacketTaskOffload -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterHardwareInfo.txt"
     [String []] $cmds = "Get-NetAdapterHardwareInfo -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterHardwareInfo -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterHardwareInfo -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterIPsecOffload.txt"
     [String []] $cmds = "Get-NetAdapterIPsecOffload -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterIPsecOffload -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterIPsecOffload -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterPowerManagement.txt"
     [String []] $cmds = "Get-NetAdapterPowerManagement -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterPowerManagement -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterPowerManagement -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterQos.txt"
     [String []] $cmds = "Get-NetAdapterQos -Name ""$name"" -IncludeHidden -ErrorAction SilentlyContinue | Out-String -Width $columns",
-                        "Get-NetAdapterQos -Name ""$name"" -IncludeHidden -ErrorAction SilentlyContinue | Format-List  -Property *"
+                        "Get-NetAdapterQos -Name ""$name"" -IncludeHidden -ErrorAction SilentlyContinue | Format-List -Property *"
     ExecCommands -OutDir $dir -File $file -Commands $cmds # Get-NetAdapterQos has severe concurrency issues
 
     $file = "Get-NetAdapterRdma.txt"
     [String []] $cmds = "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterPacketDirect.txt"
     [String []] $cmds = "Get-NetAdapterPacketDirect -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterPacketDirect -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterPacketDirect -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterRsc.txt"
     [String []] $cmds = "Get-NetAdapterRsc -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterRsc -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterRsc -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterSriov.txt"
     [String []] $cmds = "Get-NetAdapterSriov -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterSriov -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterSriov -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterSriovVf.txt"
     [String []] $cmds = "Get-NetAdapterSriovVf -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterSriovVf -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterSriovVf -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterUso.txt"
     [String []] $cmds = "Get-NetAdapterUso -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterUso -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterUso -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterVmq.txt"
     [String []] $cmds = "Get-NetAdapterVmq -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterVmq -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterVmq -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterVmqQueue.txt"
     [String []] $cmds = "Get-NetAdapterVmqQueue -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterVmqQueue -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterVmqQueue -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterVPort.txt"
     [String []] $cmds = "Get-NetAdapterVPort -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterVPort -Name ""$name"" -IncludeHidden | Format-List  -Property *"
+                        "Get-NetAdapterVPort -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # NetAdapterWorker()
 
