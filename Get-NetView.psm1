@@ -1,11 +1,14 @@
 $Global:Version = "2020.9.23.115"
 
+$Global:ThreadPool = $null
+$Global:QueueActivity = "Queueing tasks..."
+$Global:FinishActivity = "Finishing..."
+
+$Global:ChelsioDeviceDirs = @{}
+$Global:MellanoxSystemLogDir = ""
+
 $ExecFunctions = {
     $columns   = 4096
-    $Global:ThreadPool = $null
-
-    $Global:ChelsioDeviceDirs = @{}
-    $Global:MellanoxSystemLogDir = ""
 
     # Alias Write-CmdLog to Write-Host for background threads,
     # since console color only applies to the main thread.
@@ -27,19 +30,6 @@ $ExecFunctions = {
         $out  = Join-Path $OutDir $file
         Write-Output $Message | Out-File -Encoding ascii -Append $out
     } # ExecControlError()
-
-    function ExecCommandText {
-        [CmdletBinding()]
-        Param(
-            [parameter(Mandatory=$true)] [String] $Command
-        )
-
-        # Mirror command execution context
-        Write-Output "$env:USERNAME @ ${env:COMPUTERNAME}:"
-
-        # Mirror command to execute
-        Write-Output "$(prompt)$Command"
-    } # ExecCommandText()
 
     enum CommandStatus {
         NotTested    # Indicates problem with TestCommand
@@ -105,7 +95,12 @@ $ExecFunctions = {
         $status, $duration, $commandOut = TestCommand -Command $Command
         $duration = ("{0,6:n0}" -f $duration)
 
-        ExecCommandText -Command $Command
+        # Mirror command execution context
+        Write-Output "$env:USERNAME @ ${env:COMPUTERNAME}:"
+
+        # Mirror command to execute
+        Write-Output "$(prompt)$Command"
+
         if ($status -eq [CommandStatus]::Success) {
             $logMsg = "($duration ms) $Command"
         } else {
@@ -227,15 +222,14 @@ function Open-GlobalThreadPool {
         [parameter(Mandatory=$true)] [Int] $BackgroundThreads
     )
 
-    if ($BackgroundThreads -ge 1) {
+    if ($BackgroundThreads -gt 0) {
         $Global:ThreadPool = [RunspaceFactory]::CreateRunspacePool(1, $BackgroundThreads)
         $Global:ThreadPool.Open()
+    }
 
-        if ($BackgroundThreads -eq 1) {
-            # Execute most commands in the main thread, except when
-            # Start-Thread is used directly.
-            Set-Alias ExecCommandsAsync ExecCommands
-        }
+    if ($BackgroundThreads -le 1) {
+        Set-Alias ExecCommandsAsync ExecCommands
+        $Global:QueueActivity = "Executing commands..."
     }
 } # Open-GlobalThreadPool()
 
@@ -244,7 +238,7 @@ function Close-GlobalThreadPool {
     Param()
 
     if ($Global:ThreadPool -ne $null) {
-        Write-Host "Cleanup background threads..."
+        Write-Progress -Activity $Global:FinishActivity -Status "Cleanup background threads..."
         $Global:ThreadPool.Close()
         $Global:ThreadPool.Dispose()
         $Global:ThreadPool = $null
@@ -271,7 +265,7 @@ function Start-Thread {
 
         $async = $ps.BeginInvoke()
 
-        return @{Name=$ScriptBlock.Ast.Name; AsyncResult=$async; PowerShell=$ps}
+        return @{AsyncResult=$async; PowerShell=$ps}
     }
 } # Start-Thread()
 
@@ -282,8 +276,11 @@ function Show-Threads {
     )
 
     $mThreads = [Collections.ArrayList]$Threads
+    $totalTasks = $mThreads.Count
 
     while ($mThreads.Count -gt 0) {
+        Write-Progress -Activity "Waiting for all tasks to complete..." -Status "$($mThreads.Count) remaining." -PercentComplete (100 * (1 - $mThreads.Count / $totalTasks))
+
         for ($i = 0; $i -lt $mThreads.Count; $i++) {
             $thread = $mThreads[$i]
 
@@ -578,7 +575,7 @@ function NetAdapterWorker {
     $file = "Get-NetAdapterQos.txt"
     [String []] $cmds = "Get-NetAdapterQos -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
                         "Get-NetAdapterQos -Name ""$name"" -IncludeHidden | Format-List -Property *"
-    ExecCommands -OutDir $dir -File $file -Commands $cmds # Get-NetAdapterQos has severe concurrency issues
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterRdma.txt"
     [String []] $cmds = "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
@@ -653,7 +650,7 @@ function NetAdapterWorkerPrepare {
     $dir = Join-Path $dir $(ConvertTo-Filename $title.Trim())
     New-Item -ItemType directory -Path $dir | Out-Null
 
-    Write-Host "Processing: $title"
+    Write-Progress $Global:QueueActivity -Status "Processing $title"
     NetIpNic         -NicName $name -OutDir $dir
     NetAdapterWorker -NicName $name -OutDir $dir
     if (-not $nic.Hidden) {
@@ -674,7 +671,7 @@ function LbfoWorker {
     $dir   = Join-Path $OutDir $(ConvertTo-Filename $title)
     New-Item -ItemType directory -Path $dir | Out-Null
 
-    Write-Host "Processing: $title"
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
     $file = "Get-NetLbfoTeam.txt"
     [String []] $cmds = "Get-NetLbfoTeam -Name ""$name""",
                         "Get-NetLbfoTeam -Name ""$name"" | Format-List  -Property *"
@@ -1516,7 +1513,7 @@ function HostVNicDetail {
         $dir     = Join-Path $OutDir $(ConvertTo-Filename $title)
         New-Item -ItemType directory -Path $dir | Out-Null
 
-        Write-Host "Processing: $title"
+        Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
         HostVNicWorker   -HostVNicName $hnic.Name -OutDir $dir
         NetAdapterWorker -NicName      $vnic.Name -OutDir $dir
         NetIpNic         -NicName      $vnic.Name -OutDir $dir
@@ -1543,7 +1540,7 @@ function VMNetworkAdapterDetail {
     # can have the same MAC (if VM is off), Name, VMName, and SwitchName.
     [String] $vmNicObject = "`$(Get-VMNetworkAdapter -VMName ""$VMName"" -Name ""$VMNicName"" | where {`$_.Id -like ""*$id""})"
 
-    Write-Host "Processing: $title"
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
     $file = "Get-VMNetworkAdapter.txt"
     [String []] $cmds = "$vmNicObject | Out-String -Width $columns",
                         "$vmNicObject | Format-List -Property *"
@@ -1672,7 +1669,7 @@ function VMNetworkAdapterPerVM {
                 $vmNicId = ($vmNic.Id -split "\\")[1] # Same as AdapterId, but works if VM is off
                 if (-not $vmQuery)
                 {
-                    Write-Host "Processing: $title"
+                    Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
                     New-Item -ItemType "Directory" -Path $dir | Out-Null
                     VMWorker -VMId $vmId -OutDir $dir
                     $vmQuery = $true
@@ -1813,7 +1810,7 @@ function VMSwitchDetail {
         $dir  =  Join-Path $OutDir $(ConvertTo-Filename $title)
         New-Item -ItemType directory -Path $dir | Out-Null
 
-        Write-Host "Processing: $title"
+        Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
         VfpExtensionDetail    -VMSwitchId $id -OutDir $dir
         VMSwitchWorker        -VMSwitchId $id -OutDir $dir
         ProtocolNicDetail     -VMSwitchId $id -OutDir $dir
@@ -1986,7 +1983,7 @@ function HNSDetail {
     try {
         $null = Get-Service "hns" -ErrorAction Stop
     } catch {
-        Write-Host "HNSDetail: hns service not found, skipping."
+        Write-Host "$($MyInvocation.MyCommand.Name): hns service not found, skipping."
         return
     }
 
@@ -2237,8 +2234,6 @@ function NetshTrace {
                         "netsh interface ipv6 show udpstats"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
-    Write-Host "`n"
-    Write-Host "Processing..."
     $file = "NetshTrace.txt"
     [String []] $cmds = "netsh -?",
                         "netsh trace show scenarios",
@@ -2299,10 +2294,10 @@ function Counters {
     }
     $instancesToQuery | Out-File -FilePath $in -Encoding ascii
 
-    Write-Host "Querying perf counters..."
     $file = "CounterDetail.csv"
     $out  = Join-Path $dir $file
-    typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > $null
+    [String []] $cmds = "typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > `$null"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
 } # Counters()
 
 function SystemLogs {
@@ -2395,6 +2390,8 @@ function Sanity {
     $dir  = (Join-Path -Path $OutDir -ChildPath "Sanity")
     New-Item -ItemType directory -Path $dir | Out-Null
 
+    Write-Progress -Activity $Global:FinishActivity -Status "Processing output..."
+
     $file = "Get-ChildItem.txt"
     [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash | Format-Table -AutoSize | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
@@ -2476,6 +2473,7 @@ function EnvCreate {
 function Initialization {
     [CmdletBinding()]
     Param(
+        [parameter(Mandatory=$true)] [Int] $BackgroundThreads,
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
@@ -2486,9 +2484,10 @@ function Initialization {
     EnvDestroy $OutDir
     EnvCreate $OutDir
 
+    Clear-Host
     Start-Transcript -Path "$OutDir\Get-NetView.log"
 
-    Clear-Host
+    Open-GlobalThreadPool -BackgroundThreads $BackgroundThreads
 } # Initialization()
 
 function CreateZip {
@@ -2538,12 +2537,13 @@ function Completion {
 
     TryCmd {Stop-Transcript}
 
-    Write-Host "Creating zip..."
+    Write-Progress -Activity $Global:FinishActivity -Status "Creating zip..."
     $outzip = "$Src-$timestamp.zip"
     CreateZip -Src $Src -Out $outzip
     Write-Host $outzip
     Write-Host "Size:    $("{0:N2} MB" -f ((Get-Item $outzip).Length / 1MB))"
-    Write-Host ""
+
+    Write-Progress -Activity $Global:FinishActivity -Completed
 } # Completion()
 
 <#
@@ -2588,8 +2588,8 @@ function Completion {
     Maximum number of background tasks, from 0 - 16. Defaults to 5.
 
 .PARAMETER SkipAdminCheck
-    If present, the check for administrator privileges will be skipped. Note that less data
-    will be collected and the results may be of limited or no use.
+    If present, skip the check for admin privileges before execution. Note that without admin privileges, the scope and
+    usefulness of the collected data is limited.
 
 .PARAMETER SkipLogs
     If present, skip the EVT and WER logs gather phases.
@@ -2606,10 +2606,6 @@ function Completion {
 .EXAMPLE
     Get-NetView -OutputDirectory ".\"
     Runs Get-NetView and outputs to the current working directory.
-
-.EXAMPLE
-    Get-NetView -SkipAdminCheck
-    Runs Get-NetView without verifying administrator privileges and outputs to the Desktop.
 
 .LINK
     https://github.com/microsoft/Get-NetView
@@ -2642,14 +2638,13 @@ function Get-NetView {
     CheckAdminPrivileges $SkipAdminCheck
     $workDir = NormalizeWorkDir -OutputDirectory $OutputDirectory
 
-    Initialization -OutDir $workDir
+    Initialization -BackgroundThreads $BackgroundThreads -OutDir $workDir
 
     # Start Run
     try {
         CustomModule -OutDir $workDir -Commands $ExtraCommands
 
-        Open-GlobalThreadPool -BackgroundThreads $BackgroundThreads
-
+        Write-Progress -Activity $Global:QueueActivity
         $threads = if ($true) {
             if (-not $SkipNetshTrace) {
                 Start-Thread ${function:NetshTrace} -Params @{OutDir=$workDir}
@@ -2684,7 +2679,6 @@ function Get-NetView {
     } finally {
         Close-GlobalThreadPool
 
-        Write-Host "Processing..."
         Sanity -OutDir $workDir -Params $PSBoundParameters
         Completion -Src $workDir
     }
