@@ -28,19 +28,6 @@ $ExecFunctions = {
         Write-Output $Message | Out-File -Encoding ascii -Append $out
     } # ExecControlError()
 
-    function ExecCommandText {
-        [CmdletBinding()]
-        Param(
-            [parameter(Mandatory=$true)] [String] $Command
-        )
-
-        # Mirror command execution context
-        Write-Output "$env:USERNAME @ ${env:COMPUTERNAME}:"
-
-        # Mirror command to execute
-        Write-Output "$(prompt)$Command"
-    } # ExecCommandText()
-
     enum CommandStatus {
         NotTested    # Indicates problem with TestCommand
         Unavailable  # [Part of] the command doesn't exist
@@ -105,7 +92,12 @@ $ExecFunctions = {
         $status, $duration, $commandOut = TestCommand -Command $Command
         $duration = ("{0,6:n0}" -f $duration)
 
-        ExecCommandText -Command $Command
+        # Mirror command execution context
+        Write-Output "$env:USERNAME @ ${env:COMPUTERNAME}:"
+
+        # Mirror command to execute
+        Write-Output "$(prompt)$Command"
+
         if ($status -eq [CommandStatus]::Success) {
             $logMsg = "($duration ms) $Command"
         } else {
@@ -115,6 +107,11 @@ $ExecFunctions = {
         Write-Output $commandOut
 
         Write-CmdLog "$logMsg"
+
+        if ($Scenario -eq "AzureHost") {
+            # Delay execution to avoid sustained CPU spikes.
+            Start-Sleep -Milliseconds 1000
+        }
     } # ExecCommand()
 
     function ExecCommands {
@@ -226,6 +223,11 @@ function Open-GlobalThreadPool {
     Param(
         [parameter(Mandatory=$true)] [Int] $BackgroundThreads
     )
+
+    if ($Scenario -eq "AzureHost") {
+        Write-Host "Using BackgroundThreads=0 for scenario $Scenario."
+        return
+    }
 
     if ($BackgroundThreads -ge 1) {
         $Global:ThreadPool = [RunspaceFactory]::CreateRunspacePool(1, $BackgroundThreads)
@@ -1980,7 +1982,7 @@ function HNSDetail {
     try {
         $null = Get-Service "hns" -ErrorAction Stop
     } catch {
-        Write-Host "HNSDetail: hns service not found, skipping."
+        Write-Host "$($MyInvocation.MyCommand.Name): hns service not found, skipping."
         return
     }
 
@@ -2302,6 +2304,11 @@ function SystemLogs {
 
     $dir = $OutDir
 
+    if ($Scenario -eq "FailoverCluster") {
+        Write-Host "$($MyInvocation.MyCommand.Name): Skipped for scenario $Scenario."
+        return
+    }
+
     $file = "WinEVT.txt"
     [String []] $paths = "$env:SystemRoot\System32\winevt"
     ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $dir
@@ -2575,16 +2582,18 @@ function Completion {
     Maximum number of background tasks, from 0 - 16. Defaults to 5.
 
 .PARAMETER SkipAdminCheck
-    If present, the check for administrator privileges will be skipped. Note that less data
-    will be collected and the results may be of limited or no use.
+    If present, the check for administrator privileges will be skipped. Note that limited data
+    will be collected, which may be of limited use.
+    
+.PARAMETER Scenario
+    Modifies data collection to comply with special requirements for certain scenarios:
+        Universal       - Use default unmodified behavior.
+        AzureHost       - Slows down script to avoid sustained CPU spikes.
+        FailoverCluster - Skip sytem log collection.
 
 .EXAMPLE
     Get-NetView -OutputDirectory ".\"
     Runs Get-NetView and outputs to the current working directory.
-
-.EXAMPLE
-    Get-NetView -SkipAdminCheck
-    Runs Get-NetView without verifying administrator privileges and outputs to the Desktop.
 
 .LINK
     https://github.com/microsoft/Get-NetView
@@ -2605,7 +2614,11 @@ function Get-NetView {
         [Int] $BackgroundThreads = 5,
 
         [parameter(Mandatory=$false)]
-        [Switch] $SkipAdminCheck = $false
+        [Switch] $SkipAdminCheck = $false,
+
+        [parameter(Mandatory=$false)]
+        [ValidateSet("Universal", "AzureHost", "FailoverCluster")]
+        [String] $Scenario = "Universal"
     )
 
     $start = Get-Date
