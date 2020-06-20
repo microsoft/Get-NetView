@@ -10,6 +10,9 @@ git config --global core.safecrlf false
 # Line break for readability in AppVeyor console
 Write-Host -Object ''
 
+$versionUpdateCommitMsg = "Update version to {0}"
+$filesToPublish = @("Get-NetView.psd1", "Get-NetView.psm1", "LICENSE", "README.md")
+
 # Make sure we're using the Master branch and that it's not a pull request
 # Environmental Variables Guide: https://www.appveyor.com/docs/environment-variables/
 if ($env:APPVEYOR_REPO_BRANCH -ne 'master') {
@@ -21,10 +24,20 @@ if ($env:APPVEYOR_REPO_BRANCH -ne 'master') {
         # This is where the module manifest lives
         $manifestPath = ".\$($env:RepoName).psd1"
 
-        # Start by importing the manifest to determine the version, then add 1 to the revision
+        # Start by importing the manifest to determine the version
         $manifest = Test-ModuleManifest -Path $manifestPath -ErrorAction SilentlyContinue
         $oldVersion = $manifest.Version
         $newVersion = [Version]::new($env:APPVEYOR_BUILD_VERSION -split "/.") # expected format "yyyy.MM.dd.{build}"
+
+        # Check if a published file is updated
+        $lastVersionUpdate = git log --grep ($versionUpdateCommitMsg -f $oldVersion) --format=format:"%H"
+        $modifiedFiles = git diff HEAD $lastVersionUpdate --name-only
+        $needToPublish = $filesToPublish | where {$modifiedFiles -like "$_"}
+
+        if (-not $needToPublish) {
+            Write-Warning -Message "No changes to published files."
+            return
+        }
 
         Write-Output "Old Version: $oldVersion"
         Write-Output "New Version: $newVersion"
@@ -58,13 +71,6 @@ if ($env:APPVEYOR_REPO_BRANCH -ne 'master') {
     # Otherwise, everything will be published, including the .git folder.
     $publishedFolder = ".\published\Get-NetView" # leaf dir MUST be named "Get-NetView"
     try {
-        $filesToPublish = @(
-            "Get-NetView.psd1",
-            "Get-NetView.psm1",
-            "LICENSE",
-            "README.md"
-        )
-
         if (Test-Path $publishedFolder) {
             Remove-Item -Path $publishedFolder -Recurse -Force
         }
