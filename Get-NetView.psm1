@@ -1,11 +1,14 @@
 $Global:Version = "2020.6.19.95"
 
+$Global:ThreadPool = $null
+$Global:QueueActivity = "Queueing tasks..."
+$Global:FinishActivity = "Finishing..."
+
+$Global:ChelsioDeviceDirs = @{}
+$Global:MellanoxSystemLogDir = ""
+
 $ExecFunctions = {
     $columns   = 4096
-    $Global:ThreadPool = $null
-
-    $Global:ChelsioDeviceDirs = @{}
-    $Global:MellanoxSystemLogDir = ""
 
     # Alias Write-CmdLog to Write-Host for background threads,
     # since console color only applies to the main thread.
@@ -229,15 +232,17 @@ function Open-GlobalThreadPool {
         return
     }
 
-    if ($BackgroundThreads -ge 1) {
+    if ($BackgroundThreads -gt 0) {
         $Global:ThreadPool = [RunspaceFactory]::CreateRunspacePool(1, $BackgroundThreads)
         $Global:ThreadPool.Open()
+    }
 
-        if ($BackgroundThreads -eq 1) {
-            # Execute most commands in the main thread, except when
-            # Start-Thread is used directly.
-            Set-Alias ExecCommandsAsync ExecCommands
-        }
+    if ($BackgroundThreads -le 1) {
+        # Execute commands in the main thread, except when
+        # Start-Thread is used directly.
+        Set-Alias ExecCommandsAsync ExecCommands
+
+        $Global:QueueActivity = "Executing commands..."
     }
 } # Open-GlobalThreadPool()
 
@@ -246,7 +251,7 @@ function Close-GlobalThreadPool {
     Param()
 
     if ($Global:ThreadPool -ne $null) {
-        Write-Host "Cleanup background threads..."
+        Write-Progress -Activity $Global:FinishActivity -Status "Cleanup background threads..."
         $Global:ThreadPool.Close()
         $Global:ThreadPool.Dispose()
         $Global:ThreadPool = $null
@@ -273,7 +278,7 @@ function Start-Thread {
 
         $async = $ps.BeginInvoke()
 
-        return @{Name=$ScriptBlock.Ast.Name; AsyncResult=$async; PowerShell=$ps}
+        return @{AsyncResult=$async; PowerShell=$ps}
     }
 } # Start-Thread()
 
@@ -284,8 +289,11 @@ function Show-Threads {
     )
 
     $mThreads = [Collections.ArrayList]$Threads
+    $totalTasks = $mThreads.Count
 
     while ($mThreads.Count -gt 0) {
+        Write-Progress -Activity "Waiting for all tasks to complete..." -Status "$($mThreads.Count) remaining." -PercentComplete (100 * (1 - $mThreads.Count / $totalTasks))
+
         for ($i = 0; $i -lt $mThreads.Count; $i++) {
             $thread = $mThreads[$i]
 
@@ -305,7 +313,7 @@ function Show-Threads {
             }
         }
 
-        Start-Sleep -Milliseconds 33 # ~30 Hz
+        Start-Sleep -Milliseconds 40 # 25 Hz
     }
 } # Show-Threads()
 
@@ -580,7 +588,7 @@ function NetAdapterWorker {
     $file = "Get-NetAdapterQos.txt"
     [String []] $cmds = "Get-NetAdapterQos -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
                         "Get-NetAdapterQos -Name ""$name"" -IncludeHidden | Format-List -Property *"
-    ExecCommands -OutDir $dir -File $file -Commands $cmds # Get-NetAdapterQos has severe concurrency issues
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterRdma.txt"
     [String []] $cmds = "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
@@ -655,7 +663,7 @@ function NetAdapterWorkerPrepare {
     $dir = Join-Path $dir $(ConvertTo-Filename $title.Trim())
     New-Item -ItemType directory -Path $dir | Out-Null
 
-    Write-Host "Processing: $title"
+    Write-Progress $Global:QueueActivity -Status "Processing $title"
     NetIpNic         -NicName $name -OutDir $dir
     NetAdapterWorker -NicName $name -OutDir $dir
     if (-not $nic.Hidden) {
@@ -676,7 +684,7 @@ function LbfoWorker {
     $dir   = Join-Path $OutDir $(ConvertTo-Filename $title)
     New-Item -ItemType directory -Path $dir | Out-Null
 
-    Write-Host "Processing: $title"
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
     $file = "Get-NetLbfoTeam.txt"
     [String []] $cmds = "Get-NetLbfoTeam -Name ""$name""",
                         "Get-NetLbfoTeam -Name ""$name"" | Format-List  -Property *"
@@ -1518,7 +1526,7 @@ function HostVNicDetail {
         $dir     = Join-Path $OutDir $(ConvertTo-Filename $title)
         New-Item -ItemType directory -Path $dir | Out-Null
 
-        Write-Host "Processing: $title"
+        Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
         HostVNicWorker   -HostVNicName $hnic.Name -OutDir $dir
         NetAdapterWorker -NicName      $vnic.Name -OutDir $dir
         NetIpNic         -NicName      $vnic.Name -OutDir $dir
@@ -1545,7 +1553,7 @@ function VMNetworkAdapterDetail {
     # can have the same MAC (if VM is off), Name, VMName, and SwitchName.
     [String] $vmNicObject = "`$(Get-VMNetworkAdapter -VMName ""$VMName"" | where {(`$_.Id -split ""\\"")[1] -eq ""$id""})"
 
-    Write-Host "Processing: $title"
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
     $file = "Get-VMNetworkAdapter.txt"
     [String []] $cmds = "$vmNicObject | Out-String -Width $columns",
                         "$vmNicObject | Format-List -Property *"
@@ -1675,7 +1683,7 @@ function VMNetworkAdapterPerVM {
 
             if (-not $vmQuery)
             {
-                Write-Host "Processing: $title"
+                Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
                 New-Item -ItemType "Directory" -Path $dir | Out-Null
                 VMWorker -VMId $vmId -OutDir $dir
                 $vmQuery = $true
@@ -1809,7 +1817,7 @@ function VMSwitchDetail {
         $dir  =  Join-Path $OutDir $(ConvertTo-Filename $title)
         New-Item -ItemType directory -Path $dir | Out-Null
 
-        Write-Host "Processing: $title"
+        Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
         VfpExtensionDetail    -VMSwitchId $id -OutDir $dir
         VMSwitchWorker        -VMSwitchId $id -OutDir $dir
         ProtocolNicDetail     -VMSwitchId $id -OutDir $dir
@@ -2228,8 +2236,6 @@ function NetshTrace {
                         "netsh interface ipv6 show udpstats"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
-    Write-Host "`n"
-    Write-Host "Processing..."
     $file = "NetshTrace.txt"
     [String []] $cmds = "netsh -?",
                         "netsh trace show scenarios",
@@ -2290,10 +2296,10 @@ function Counters {
     }
     $instancesToQuery | Out-File -FilePath $in -Encoding ascii
 
-    Write-Host "Querying perf counters..."
     $file = "CounterDetail.csv"
     $out  = Join-Path $dir $file
-    typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > $null
+    [String []] $cmds = "typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > `$null"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
 } # Counters()
 
 function SystemLogs {
@@ -2389,6 +2395,8 @@ function Sanity {
     $dir  = (Join-Path -Path $OutDir -ChildPath "Sanity")
     New-Item -ItemType directory -Path $dir | Out-Null
 
+    Write-Progress -Activity $Global:FinishActivity -Status "Processing output..."
+
     $file = "Get-ChildItem.txt"
     [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash | Format-Table -AutoSize | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
@@ -2470,6 +2478,7 @@ function EnvCreate {
 function Initialization {
     [CmdletBinding()]
     Param(
+        [parameter(Mandatory=$true)] [Int] $BackgroundThreads,
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
@@ -2480,9 +2489,10 @@ function Initialization {
     EnvDestroy $OutDir
     EnvCreate $OutDir
 
+    Clear-Host
     Start-Transcript -Path "$OutDir\Get-NetView.log"
 
-    Clear-Host
+    Open-GlobalThreadPool -BackgroundThreads $BackgroundThreads
 } # Initialization()
 
 function CreateZip {
@@ -2532,12 +2542,13 @@ function Completion {
 
     TryCmd {Stop-Transcript}
 
-    Write-Host "Creating zip..."
+    Write-Progress -Activity $Global:FinishActivity -Status "Creating zip..."
     $outzip = "$Src-$timestamp.zip"
     CreateZip -Src $Src -Out $outzip
     Write-Host $outzip
     Write-Host "Size:    $("{0:N2} MB" -f ((Get-Item $outzip).Length / 1MB))"
-    Write-Host ""
+
+    Write-Progress -Activity $Global:FinishActivity -Completed
 } # Completion()
 
 <#
@@ -2627,14 +2638,13 @@ function Get-NetView {
     CheckAdminPrivileges $SkipAdminCheck
     $workDir = NormalizeWorkDir -OutputDirectory $OutputDirectory
 
-    Initialization -OutDir $workDir
+    Initialization -BackgroundThreads $BackgroundThreads -OutDir $workDir
 
     # Start Run
     try {
         CustomModule -OutDir $workDir -Commands $ExtraCommands
 
-        Open-GlobalThreadPool -BackgroundThreads $BackgroundThreads
-
+        Write-Progress -Activity $Global:QueueActivity
         $threads = if ($true) {
             Start-Thread ${function:NetshTrace} -Params @{OutDir=$workDir}
             Start-Thread ${function:Counters}   -Params @{OutDir=$workDir}
@@ -2666,7 +2676,6 @@ function Get-NetView {
     } finally {
         Close-GlobalThreadPool
 
-        Write-Host "Processing..."
         Sanity -OutDir $workDir -Params $PSBoundParameters
         Completion -Src $workDir
     }
