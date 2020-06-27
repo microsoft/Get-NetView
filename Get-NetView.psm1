@@ -9,6 +9,7 @@ $Global:MellanoxSystemLogDir = ""
 
 $ExecFunctions = {
     $columns   = 4096
+    $Global:DelayFactor = 0
 
     # Alias Write-CmdLog to Write-Host for background threads,
     # since console color only applies to the main thread.
@@ -92,7 +93,7 @@ $ExecFunctions = {
             [parameter(Mandatory=$true)] [String] $Command
         )
 
-        $status, $duration, $commandOut = TestCommand -Command $Command
+        $status, [Int] $duration, $commandOut = TestCommand -Command $Command
         $duration = ("{0,6:n0}" -f $duration)
 
         # Mirror command execution context
@@ -110,6 +111,8 @@ $ExecFunctions = {
         Write-Output $commandOut
 
         Write-CmdLog "$logMsg"
+
+        Start-Sleep -Milliseconds ($Global:DelayFactor * $duration)
     } # ExecCommand()
 
     function ExecCommands {
@@ -2393,7 +2396,7 @@ function Sanity {
     Write-Progress -Activity $Global:FinishActivity -Status "Processing output..."
 
     $file = "Get-ChildItem.txt"
-    [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash | Format-Table -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash -Algorithm SHA1 | Format-Table -AutoSize | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
     $file = "Metadata.txt"
@@ -2401,9 +2404,9 @@ function Sanity {
     $paramString = if ($Params.Count -eq 0) {"None`n`n"} else {"`n$($Params | Out-String)"}
     Write-Output "Script Version: $($Global:Version)" | Out-File -Encoding ascii -Append $out
     Write-Output "Module Version: $($MyInvocation.MyCommand.Module.Version)" | Out-File -Encoding ascii -Append $out
-    Write-Output "Parameters: $paramString" | Out-File -Encoding ascii -Append $out
+    Write-Output "Bound Parameters: $paramString" | Out-File -Encoding ascii -Append $out
 
-    [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm ""SHA256"" | Format-List -Property * | Out-String -Width $columns"
+    [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm SHA1 | Format-List -Property * | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 } # Sanity()
 
@@ -2470,10 +2473,11 @@ function EnvCreate {
     New-Item -ItemType directory -Path $OutDir -ErrorAction Stop | Out-Null
 } # EnvCreate()
 
-function Initialization {
+function Initialize {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory=$true)] [Int] $BackgroundThreads,
+        [parameter(Mandatory=$true)] [Double] $ExecutionRate,
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
@@ -2487,8 +2491,15 @@ function Initialization {
     Clear-Host
     Start-Transcript -Path "$OutDir\Get-NetView.log"
 
+    if ($ExecutionRate -lt 1) {
+        $Global:DelayFactor = (1 / $ExecutionRate) - 1
+
+        Write-Host "Forcing BackgroundThreads=0 because ExecutionRate is less than 1."
+        $BackgroundThreads = 0
+    }
+
     Open-GlobalThreadPool -BackgroundThreads $BackgroundThreads
-} # Initialization()
+} # Initialize()
 
 function CreateZip {
     [CmdletBinding()]
@@ -2514,7 +2525,7 @@ function Completion {
     $timestamp = $start | Get-Date -f yyyy.MM.dd_hh.mm.ss
 
     $dirs = (Get-ChildItem $Src -Recurse | Measure-Object -Property length -Sum) # out folder size
-    $hash = (Get-FileHash -Path $MyInvocation.PSCommandPath -Algorithm "SHA256").Hash # script hash
+    $hash = (Get-FileHash -Path $MyInvocation.PSCommandPath -Algorithm "SHA1").Hash # script hash
 
     # Display version and file save location
     Write-Host ""
@@ -2522,7 +2533,7 @@ function Completion {
     Write-Host "-----------------"
     Write-Host "Get-NetView"
     Write-Host "Version: $($Global:Version)"
-    Write-Host "SHA256:  $(if ($hash) {$hash} else {"N/A"})"
+    Write-Host "SHA1:  $(if ($hash) {$hash} else {"N/A"})"
     Write-Host ""
     Write-Host $Src
     Write-Host "Size:    $("{0:N2} MB" -f ($dirs.sum / 1MB))"
@@ -2587,6 +2598,12 @@ function Completion {
 .PARAMETER BackgroundThreads
     Maximum number of background tasks, from 0 - 16. Defaults to 5.
 
+.PARAMETER ExecutionRate
+    Relative rate at which commands are executed, with 1 being normal speed. Reduce to slow down execution and spread
+    CPU usage over time. Useful on live or production systems
+
+    NOTE: This will force BackgroundThreads = 0.
+
 .PARAMETER SkipAdminCheck
     If present, skip the check for admin privileges before execution. Note that without admin privileges, the scope and
     usefulness of the collected data is limited.
@@ -2625,6 +2642,10 @@ function Get-NetView {
         [ValidateRange(0, 16)]
         [Int] $BackgroundThreads = 5,
 
+        [parameter(Mandatory=$false)]
+        [ValidateRange(0.0001, 1)]
+        [Double] $ExecutionRate = 1,
+
         [parameter(Mandatory=$false)]  [Switch] $SkipAdminCheck = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipLogs       = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipNetshTrace = $false,
@@ -2638,7 +2659,7 @@ function Get-NetView {
     CheckAdminPrivileges $SkipAdminCheck
     $workDir = NormalizeWorkDir -OutputDirectory $OutputDirectory
 
-    Initialization -BackgroundThreads $BackgroundThreads -OutDir $workDir
+    Initialize -BackgroundThreads $BackgroundThreads -ExecutionRate $ExecutionRate -OutDir $workDir
 
     # Start Run
     try {
