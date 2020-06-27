@@ -2398,7 +2398,7 @@ function Sanity {
     Write-Progress -Activity $Global:FinishActivity -Status "Processing output..."
 
     $file = "Get-ChildItem.txt"
-    [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash | Format-Table -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash -Algorithm SHA1 | Format-Table -AutoSize | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
     $file = "Metadata.txt"
@@ -2408,7 +2408,7 @@ function Sanity {
     Write-Output "Module Version: $($MyInvocation.MyCommand.Module.Version)" | Out-File -Encoding ascii -Append $out
     Write-Output "Parameters: $paramString" | Out-File -Encoding ascii -Append $out
 
-    [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm ""SHA256"" | Format-List -Property * | Out-String -Width $columns"
+    [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm SHA1 | Format-List -Property * | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 } # Sanity()
 
@@ -2519,7 +2519,7 @@ function Completion {
     $timestamp = $start | Get-Date -f yyyy.MM.dd_hh.mm.ss
 
     $dirs = (Get-ChildItem $Src -Recurse | Measure-Object -Property length -Sum) # out folder size
-    $hash = (Get-FileHash -Path $MyInvocation.PSCommandPath -Algorithm "SHA256").Hash # script hash
+    $hash = (Get-FileHash -Path $MyInvocation.PSCommandPath -Algorithm "SHA1").Hash # script hash
 
     # Display version and file save location
     Write-Host ""
@@ -2527,7 +2527,7 @@ function Completion {
     Write-Host "-----------------"
     Write-Host "Get-NetView"
     Write-Host "Version: $($Global:Version)"
-    Write-Host "SHA256:  $(if ($hash) {$hash} else {"N/A"})"
+    Write-Host "SHA1:  $(if ($hash) {$hash} else {"N/A"})"
     Write-Host ""
     Write-Host $Src
     Write-Host "Size:    $("{0:N2} MB" -f ($dirs.sum / 1MB))"
