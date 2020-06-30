@@ -9,6 +9,7 @@ $Global:MellanoxSystemLogDir = ""
 
 $ExecFunctions = {
     $columns   = 4096
+    $Global:DelayFactor = 0
 
     # Alias Write-CmdLog to Write-Host for background threads,
     # since console color only applies to the main thread.
@@ -92,7 +93,7 @@ $ExecFunctions = {
             [parameter(Mandatory=$true)] [String] $Command
         )
 
-        $status, $duration, $commandOut = TestCommand -Command $Command
+        $status, [Int] $duration, $commandOut = TestCommand -Command $Command
         $duration = ("{0,6:n0}" -f $duration)
 
         # Mirror command execution context
@@ -111,10 +112,7 @@ $ExecFunctions = {
 
         Write-CmdLog "$logMsg"
 
-        if ($Scenario -eq "AzureHost") {
-            # Delay execution to avoid sustained CPU spikes.
-            Start-Sleep -Milliseconds 1000
-        }
+        Start-Sleep -Milliseconds ($duration * $Global:DelayFactor)
     } # ExecCommand()
 
     function ExecCommands {
@@ -226,11 +224,6 @@ function Open-GlobalThreadPool {
     Param(
         [parameter(Mandatory=$true)] [Int] $BackgroundThreads
     )
-
-    if ($Scenario -eq "AzureHost") {
-        Write-Host "Using BackgroundThreads=0 for scenario $Scenario."
-        return
-    }
 
     if ($BackgroundThreads -gt 0) {
         $Global:ThreadPool = [RunspaceFactory]::CreateRunspacePool(1, $BackgroundThreads)
@@ -2406,7 +2399,7 @@ function Sanity {
     $paramString = if ($Params.Count -eq 0) {"None`n`n"} else {"`n$($Params | Out-String)"}
     Write-Output "Script Version: $($Global:Version)" | Out-File -Encoding ascii -Append $out
     Write-Output "Module Version: $($MyInvocation.MyCommand.Module.Version)" | Out-File -Encoding ascii -Append $out
-    Write-Output "Parameters: $paramString" | Out-File -Encoding ascii -Append $out
+    Write-Output "Bound Parameters: $paramString" | Out-File -Encoding ascii -Append $out
 
     [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm SHA1 | Format-List -Property * | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
@@ -2475,10 +2468,11 @@ function EnvCreate {
     New-Item -ItemType directory -Path $OutDir -ErrorAction Stop | Out-Null
 } # EnvCreate()
 
-function Initialization {
+function Initialize {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory=$true)] [Int] $BackgroundThreads,
+        [parameter(Mandatory=$true)] [Double] $ExecutionRate,
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
@@ -2492,8 +2486,15 @@ function Initialization {
     Clear-Host
     Start-Transcript -Path "$OutDir\Get-NetView.log"
 
+    if ($ExecutionRate -lt 1) {
+        $Global:DelayFactor = (1 / $ExecutionRate) - 1
+
+        Write-Host "Forcing BackgroundThreads=0 because ExecutionRate is less than 1."
+        $BackgroundThreads = 0
+    }
+
     Open-GlobalThreadPool -BackgroundThreads $BackgroundThreads
-} # Initialization()
+} # Initialize()
 
 function CreateZip {
     [CmdletBinding()]
@@ -2595,11 +2596,16 @@ function Completion {
 .PARAMETER SkipAdminCheck
     If present, the check for administrator privileges will be skipped. Note that limited data
     will be collected, which may be of limited use.
-    
+
+.PARAMETER ExecutionRate
+    Relative rate at which commands are executed, with 1 being normal speed. Reduce to slow down execution and spread
+    CPU usage over time. Useful on live or production systems
+
+    NOTE: This will force BackgroundThreads = 0.
+
 .PARAMETER Scenario
-    Modifies data collection to comply with special requirements for certain scenarios:
-        Universal       - Use default unmodified behavior.
-        AzureHost       - Slows down script to avoid sustained CPU spikes.
+    Comply with special requirements for certain scenarios.
+        Default         - Use default behavior.
         FailoverCluster - Skip sytem log collection.
 
 .EXAMPLE
@@ -2628,8 +2634,12 @@ function Get-NetView {
         [Switch] $SkipAdminCheck = $false,
 
         [parameter(Mandatory=$false)]
-        [ValidateSet("Universal", "AzureHost", "FailoverCluster")]
-        [String] $Scenario = "Universal"
+        [ValidateRange(0.0001, 1)]
+        [Double] $ExecutionRate = 1,
+
+        [parameter(Mandatory=$false)]
+        [ValidateSet("Default", "FailoverCluster")]
+        [String] $Scenario = "Default"
     )
 
     $start = Get-Date
@@ -2638,7 +2648,7 @@ function Get-NetView {
     CheckAdminPrivileges $SkipAdminCheck
     $workDir = NormalizeWorkDir -OutputDirectory $OutputDirectory
 
-    Initialization -BackgroundThreads $BackgroundThreads -OutDir $workDir
+    Initialize -BackgroundThreads $BackgroundThreads -ExecutionRate $ExecutionRate -OutDir $workDir
 
     # Start Run
     try {
