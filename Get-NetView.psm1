@@ -112,7 +112,9 @@ $ExecFunctions = {
 
         Write-CmdLog "$logMsg"
 
-        Start-Sleep -Milliseconds ($duration * $Global:DelayFactor)
+        if ($Global:DelayFactor -gt 0) {
+            Start-Sleep -Milliseconds ($duration * $Global:DelayFactor + 0.50)
+        }
     } # ExecCommand()
 
     function ExecCommands {
@@ -334,7 +336,14 @@ function ExecCopyItemsAsync {
         $null = New-Item -ItemType "Container" -Path $Destination
     }
 
-    [String[]] $cmds = $Paths | foreach {"Copy-Item -Path ""$_"" -Destination ""$Destination"" -Recurse -Verbose 4>&1"}
+    [String[]] $cmds = $Paths | foreach {
+        if (Test-Path -Path $_ -PathType Container) {
+            $dirName = Split-Path $_ -Leaf
+            "robocopy `"$_`" `"$Destination\$dirName`" /E /MAX:$(101MB) /V /NP"
+        } else {
+            "Copy-Item -Path `"$_`" -Destination `"$Destination`" -Verbose"
+        }
+    }
     return ExecCommandsAsync -OutDir $OutDir -File $File -Commands $cmds
 } # ExecCopyItemsAsync()
 
@@ -2303,11 +2312,6 @@ function SystemLogs {
 
     $dir = $OutDir
 
-    if ($Scenario -eq "FailoverCluster") {
-        Write-Host "$($MyInvocation.MyCommand.Name): Skipped for scenario $Scenario."
-        return
-    }
-
     $file = "WinEVT.txt"
     [String []] $paths = "$env:SystemRoot\System32\winevt"
     ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $dir
@@ -2599,14 +2603,9 @@ function Completion {
 
 .PARAMETER ExecutionRate
     Relative rate at which commands are executed, with 1 being normal speed. Reduce to slow down execution and spread
-    CPU usage over time. Useful on live or production systems
+    CPU usage over time. Useful on live or production systems to avoid disruption.
 
     NOTE: This will force BackgroundThreads = 0.
-
-.PARAMETER Scenario
-    Comply with special requirements for certain scenarios.
-        Default         - Use default behavior.
-        FailoverCluster - Skip sytem log collection.
 
 .EXAMPLE
     Get-NetView -OutputDirectory ".\"
@@ -2626,20 +2625,16 @@ function Get-NetView {
         [ScriptBlock[]] $ExtraCommands = @(),
 
         [Alias("MaxThreads")]
-        [parameter(Mandatory=$false)]
+        [parameter(Mandatory=$false, ParameterSetName="BackgroundThreads")]
         [ValidateRange(0, 16)]
         [Int] $BackgroundThreads = 5,
 
         [parameter(Mandatory=$false)]
         [Switch] $SkipAdminCheck = $false,
 
-        [parameter(Mandatory=$false)]
+        [parameter(Mandatory=$false, ParameterSetName="ExecutionRate")]
         [ValidateRange(0.0001, 1)]
-        [Double] $ExecutionRate = 1,
-
-        [parameter(Mandatory=$false)]
-        [ValidateSet("Default", "FailoverCluster")]
-        [String] $Scenario = "Default"
+        [Double] $ExecutionRate = 1
     )
 
     $start = Get-Date
