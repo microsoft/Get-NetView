@@ -112,7 +112,9 @@ $ExecFunctions = {
 
         Write-CmdLog "$logMsg"
 
-        Start-Sleep -Milliseconds ($Global:DelayFactor * $duration)
+        if ($Global:DelayFactor -gt 0) {
+            Start-Sleep -Milliseconds ($duration * $Global:DelayFactor + 0.50) # round up
+        }
     } # ExecCommand()
 
     function ExecCommands {
@@ -2600,7 +2602,7 @@ function Completion {
 
 .PARAMETER ExecutionRate
     Relative rate at which commands are executed, with 1 being normal speed. Reduce to slow down execution and spread
-    CPU usage over time. Useful on live or production systems
+    CPU usage over time. Useful on live or production systems to avoid disruption.
 
     NOTE: This will force BackgroundThreads = 0.
 
@@ -2638,7 +2640,7 @@ function Get-NetView {
         [ScriptBlock[]] $ExtraCommands = @(),
 
         [Alias("MaxThreads")]
-        [parameter(Mandatory=$false)]
+        [parameter(Mandatory=$false, ParameterSetName="BackgroundThreads")]
         [ValidateRange(0, 16)]
         [Int] $BackgroundThreads = 5,
 
