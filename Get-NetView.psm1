@@ -1536,12 +1536,12 @@ function VMNetworkAdapterDetail {
     $id    = $VMNicId
     $title = "VMNic.$name.$id"
 
-    $dir   = Join-Path $OutDir $(ConvertTo-Filename $title)
-    New-Item -ItemType directory -Path $dir | Out-Null
+    $dir  = Join-Path $OutDir $(ConvertTo-Filename $title)
+    $null = New-Item -ItemType directory -Path $dir
 
     # We must use Id to identity VMNics, because different VMNics
     # can have the same MAC (if VM is off), Name, VMName, and SwitchName.
-    [String] $vmNicObject = "`$(Get-VMNetworkAdapter -VMName ""$VMName"" | where {(`$_.Id -split ""\\"")[1] -eq ""$id""})"
+    [String] $vmNicObject = "`$(Get-VMNetworkAdapter -VMName ""$VMName"" -Name ""$VMNicName"" | where {`$_.Id -like ""*$id""})"
 
     Write-Host "Processing: $title"
     $file = "Get-VMNetworkAdapter.txt"
