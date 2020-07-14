@@ -1845,8 +1845,8 @@ function NetworkSummary {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapter.txt"
-    [String []] $cmds = "Get-VMNetworkAdapter -All | Sort-Object Name | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-VMNetworkAdapter -All | Sort-Object Name | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-VmNetworkAdapter -All | Sort-Object IsManagementOS | Sort-Object SwitchName | Format-Table -AutoSize | Out-String -Width $columns",
+                        "Get-VmNetworkAdapter -All | Sort-Object IsManagementOS | Sort-Object SwitchName | Format-Table -Property * -AutoSize | Out-String -Width $columns"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapter.txt"
