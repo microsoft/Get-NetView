@@ -1788,6 +1788,10 @@ function VMSwitchDetail {
     [String []] $cmds = "nvspinfo -a -i -h -D -p -d -m -q -b "    
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
+    $file = "NvspInfo_ExecMon.txt"
+    [String []] $cmds = "nvspinfo -X --count --sort max "    
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
     $file = "NmScrub.txt"
     [String []] $cmds = "nmscrub -a -n -t "
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
