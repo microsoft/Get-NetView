@@ -1656,33 +1656,31 @@ function VMNetworkAdapterPerVM {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory=$false)] [String] $VMSwitchId,
-        [parameter(Mandatory=$true)] [String] $OutDir
+        [parameter(Mandatory=$true)]  [String] $OutDir
     )
 
-    [Int] $index = 1
-    foreach ($vm in TryCmd {Get-VM}) {
-        $vmName = $vm.Name
-        $vmId   = $vm.VMId
-        $title  = "VM.$index.$vmName"
-
-        $dir    = Join-Path $OutDir $(ConvertTo-Filename $title)
-
-        $vmQuery = $false
         foreach ($vmNic in TryCmd {Get-VMNetworkAdapter -VM $vm} | where {$_.SwitchId -eq $VMSwitchId}) {
-            $vmNicId = ($vmNic.Id -split "\\")[1] # Same as AdapterId, but works if VM is off
+    if (-not $SkipVm) {
+        [Int] $index = 1
+        foreach ($vm in TryCmd {Get-VM}) {
+            $vmName = $vm.Name
+            $vmId   = $vm.VMId
+            $dir    = Join-Path $OutDir $(ConvertTo-Filename $title)
 
-            if (-not $vmQuery)
-            {
-                Write-Host "Processing: $title"
-                New-Item -ItemType "Directory" -Path $dir | Out-Null
-                VMWorker -VMId $vmId -OutDir $dir
-                $vmQuery = $true
+            $vmQuery = $false
+            foreach ($vmNic in TryCmd {Get-VMNetworkAdapter -VM $vm} | where {$_.SwitchId -eq $VMSwitchId}) {
+                $vmNicId = ($vmNic.Id -split "\\")[1] # Same as AdapterId, but works if VM is off
+                if (-not $vmQuery)
+                {
+                    Write-Host "Processing: $title"
+                    New-Item -ItemType "Directory" -Path $dir | Out-Null
+                    VMWorker -VMId $vmId -OutDir $dir
+                    $vmQuery = $true
+                }
+                VMNetworkAdapterDetail -VMName $vmName -VMNicName $vmNic.Name -VMNicId $vmNicId -OutDir $dir
             }
-
-            VMNetworkAdapterDetail -VMName $vmName -VMNicName $vmNic.Name -VMNicId $vmNicId -OutDir $dir
+            $index++
         }
-
-        $index++
     }
 } # VMNetworkAdapterPerVM()
 
@@ -2308,15 +2306,17 @@ function SystemLogs {
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
-    $dir = $OutDir
+    if (-not $SkipLogs) {
+        $dir = $OutDir
 
-    $file = "WinEVT.txt"
-    [String []] $paths = "$env:SystemRoot\System32\winevt"
-    ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $dir
+        $file = "WinEVT.txt"
+        [String []] $paths = "$env:SystemRoot\System32\winevt"
+        ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $dir
 
-    $file = "WER.txt"
-    [String []] $paths = "$env:ProgramData\Microsoft\Windows\WER"
-    ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $dir
+        $file = "WER.txt"
+        [String []] $paths = "$env:ProgramData\Microsoft\Windows\WER"
+        ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $dir
+    }
 } # SystemLogs()
 
 function Environment {
@@ -2586,6 +2586,18 @@ function Completion {
     If present, the check for administrator privileges will be skipped. Note that less data
     will be collected and the results may be of limited or no use.
 
+.PARAMETER SkipLogs
+    If present, skip the EVT and WER logs gather phases.
+
+.PARAMETER SkipNetshTrace
+    If present, skip the Netsh Trace data gather phases.
+
+.PARAMETER SkipCounters
+    If present, skip the Windows Performance Counters (WPM) data gather phases.    
+
+.PARAMETER SkipVm
+    If present, skip the Virtual Machine (VM) data gather phases.        
+
 .EXAMPLE
     Get-NetView -OutputDirectory ".\"
     Runs Get-NetView and outputs to the current working directory.
@@ -2612,8 +2624,11 @@ function Get-NetView {
         [ValidateRange(0, 16)]
         [Int] $BackgroundThreads = 5,
 
-        [parameter(Mandatory=$false)]
-        [Switch] $SkipAdminCheck = $false
+        [parameter(Mandatory=$false)]  [Switch] $SkipAdminCheck = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipLogs       = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipNetshTrace = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipCounters   = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipVm         = $false
     )
 
     $start = Get-Date
@@ -2631,13 +2646,16 @@ function Get-NetView {
         Open-GlobalThreadPool -BackgroundThreads $BackgroundThreads
 
         $threads = if ($true) {
-            Start-Thread ${function:NetshTrace} -Params @{OutDir=$workDir}
-            Start-Thread ${function:Counters}   -Params @{OutDir=$workDir}
+            if (-not $SkipNetshTrace) {
+                Start-Thread ${function:NetshTrace} -Params @{OutDir=$workDir}
+            }
+            if (-not $SkipCounters) {
+                Start-Thread ${function:Counters}   -Params @{OutDir=$workDir}
+            }
 
             Environment       -OutDir $workDir
             LocalhostDetail   -OutDir $workDir
             NetworkSummary    -OutDir $workDir
-
             NetSetupDetail    -OutDir $workDir
             VMSwitchDetail    -OutDir $workDir
             LbfoDetail        -OutDir $workDir
