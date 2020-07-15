@@ -1659,12 +1659,12 @@ function VMNetworkAdapterPerVM {
         [parameter(Mandatory=$true)]  [String] $OutDir
     )
 
-        foreach ($vmNic in TryCmd {Get-VMNetworkAdapter -VM $vm} | where {$_.SwitchId -eq $VMSwitchId}) {
     if (-not $SkipVm) {
         [Int] $index = 1
         foreach ($vm in TryCmd {Get-VM}) {
             $vmName = $vm.Name
             $vmId   = $vm.VMId
+            $title  = "VM.$index.$vmName"
             $dir    = Join-Path $OutDir $(ConvertTo-Filename $title)
 
             $vmQuery = $false
