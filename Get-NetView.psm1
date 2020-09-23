@@ -2143,6 +2143,11 @@ function ServicesDrivers {
     [String []] $cmds = "Get-CimInstance Win32_PnPSignedDriver | Select-Object DeviceName, DeviceId, DriverVersion | Format-Table -AutoSize | Out-String -Width $columns",
                         "Get-CimInstance Win32_PnPSignedDriver | Format-List -Property * | Out-String -Width $columns"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+    $file = "dism.txt"
+    [String []] $cmds = "dism /online /get-features"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    
 } # ServicesDrivers()
 
 function VMHostDetail {
