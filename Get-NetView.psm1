@@ -94,7 +94,6 @@ $ExecFunctions = {
         )
 
         $status, [Int] $duration, $commandOut = TestCommand -Command $Command
-        $duration = ("{0,6:n0}" -f $duration)
 
         # Mirror command execution context
         Write-Output "$env:USERNAME @ ${env:COMPUTERNAME}:"
@@ -102,15 +101,14 @@ $ExecFunctions = {
         # Mirror command to execute
         Write-Output "$(prompt)$Command"
 
-        if ($status -eq [CommandStatus]::Success) {
-            $logMsg = "($duration ms) $Command"
-        } else {
-            $logMsg = "($duration ms) [$status] $Command"
+        $logPrefix = "({0,6:n0} ms)" -f $duration
+        if ($status -ne [CommandStatus]::Success) {
+            $logPrefix = "$logPrefix [$status]"
             Write-Output "[$status]"
         }
         Write-Output $commandOut
 
-        Write-CmdLog "$logMsg"
+        Write-CmdLog "$logPrefix $Command"
 
         if ($Global:DelayFactor -gt 0) {
             Start-Sleep -Milliseconds ($duration * $Global:DelayFactor + 0.50) # round up
