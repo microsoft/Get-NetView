@@ -11,13 +11,32 @@ Find more from the Core Networking team using the [MSFTNet](https://github.com/t
 
 # Installation
 
-This module is part of MSFT.Network.Tools which can be installed using this command:
+## MSFT.Network.Diag
+
+This module is part of MSFT.Network.Diag which can be installed using this command:
+
 ```Install-Module MSFT.Network.Diag```
 
+## Direct Installation from PowerShell Gallery
+
 Or install this module individually using this command:
+
 ```Install-Module Get-NetView```
 
+## Installation on disconnected/air-gapped systems
+
+If your servers are disconnected/air-gapped, use these commands:
+
+```Save-Module Get-NetView C:\SomeFolderPath```
+
+Move the Get-NetView folder (from c:\SomeFolderPath) to C:\Program Files\WindowsPowerShell\Modules on your target server, then run:
+
+```Get-NetView```
+
+## To find more from the Networking Team
+
 To see all modules from the Microsoft Core Networking team, please use:
+
 ```Find-Module -Tag MSFTNet```
 
 ## Direct Execution
