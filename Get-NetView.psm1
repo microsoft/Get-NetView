@@ -1877,8 +1877,7 @@ function NetworkSummary {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "_netstat.txt"
-    [String []] $cmds = "netstat",
-                        "netstat -nasert",
+    [String []] $cmds = "netstat -nasert",
                         "netstat -an",
                         "netstat -xan | ? {`$_ -match ""445""}"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
