@@ -2547,6 +2547,9 @@ function Completion {
 
     TryCmd {Stop-Transcript}
 
+    # Sort Get-NetView.log by sub-command execution time
+    Get-Content $Src\Get-NetView.log | Sort-Object -Descending > $Src\Get-NetView-Time.Log
+
     Write-Progress -Activity $Global:FinishActivity -Status "Creating zip..."
     $outzip = "$Src-$timestamp.zip"
     CreateZip -Src $Src -Out $outzip
