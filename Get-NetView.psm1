@@ -1063,7 +1063,7 @@ function MellanoxDetailPerNic {
     if ($DriverName -eq "WinOF2"){
         $toolName = $driverFileName -replace ".sys", "Cmd"
         $toolPath = "$driverDir\Management Tools\$toolName.exe"
-    
+
         $file = "$toolName-Snapshot.txt"
         [String []] $cmds = "&""$toolPath"" -SnapShot -name ""$NicName"""
         (Get-NetAdapterSriovVf -Name "$NicName" -ErrorAction SilentlyContinue).FunctionID | foreach {
@@ -1160,7 +1160,7 @@ function MellanoxSystemDetail {
 
     $file = "Copy-LogFiles.txt"
     $destination = Join-Path $dir "LogFiles"
-    
+
     $mlxEtl = "Mellanox{0}.etl*" -f $(if ($DriverName -eq "WinOF2") {"-WinOF2*"} else {"-System*"})
     $mlxLog = "MLNX_WINOF{0}.log"  -f $(if ($DriverName -eq "WinOF2") {"2"})
 
@@ -1750,7 +1750,7 @@ function VfpExtensionDetail {
     [String []] $cmds = "Get-CimInstance -ClassName ""CIM_DataFile"" -Filter ""Name='$vfpExtPath'"""
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
-    $currSwitch = Get-CimInstance -Filter "Name='$id'" -ClassName "Msvm_VirtualEthernetSwitch" -Namespace "Root\Virtualization\v2" 
+    $currSwitch = Get-CimInstance -Filter "Name='$id'" -ClassName "Msvm_VirtualEthernetSwitch" -Namespace "Root\Virtualization\v2"
     $ports = Get-CimAssociatedInstance -InputObject $currSwitch -ResultClassName "Msvm_EthernetSwitchPort"
 
     foreach ($portGuid in $ports.Name) {
@@ -1783,7 +1783,7 @@ function VMSwitchDetail {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "NvspInfo_bindings.txt"
-    [String []] $cmds = "nvspinfo -a -i -h -D -p -d -m -q -b "    
+    [String []] $cmds = "nvspinfo -a -i -h -D -p -d -m -q -b "
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "NvspInfo_ExecMon.txt"
@@ -2100,6 +2100,54 @@ function QosDetail {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # QosDetail()
 
+# Only run if Azure Stack HCI Edition
+$edition = Get-WindowsEdition -Online
+if ($edition.Edition -eq 'ServerAzureStackHCICor') {
+    Function ATCDetail {
+        [CmdletBinding()]
+
+        param (
+            [parameter(Mandatory=$true)] [String] $OutDir
+        )
+
+        $dir = (Join-Path -Path $OutDir -ChildPath "ATC")
+        New-Item -ItemType directory -Path $dir | Out-Null
+
+        # Local Intents
+        $IntentExists = Get-NetIntent
+
+        $file = "Get-NetIntent_Standalone.txt"
+        [String []] $cmds = "Get-NetIntent"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+        $file = "Get-NetIntentStatus_Standalone.txt"
+        [String []] $cmds = "Get-NetIntentStatus"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+        $file = "Get-NetIntentAllGoalStates_Standalone.txt"
+        [String []] $cmds = "Get-NetIntentAllGoalStates | ConvertTo-Json -Depth 10"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+        # Cluster Intents
+        try   { $Cluster =  Get-Cluster -ErrorAction SilentlyContinue }
+        Catch { Remove-Variable Cluster -ErrorAction SilentlyContinue }
+
+        if ($Cluster) {
+            $file = "Get-NetIntent_Cluster.txt"
+            [String []] $cmds = "Get-NetIntent -ClusterName $($Cluster.Name)"
+            ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+            $file = "Get-NetIntentStatus_Cluster.txt"
+            [String []] $cmds = "Get-NetIntentStatus -ClusterName $($Cluster.Name)"
+            ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+            $file = "Get-NetIntentAllGoalStates_Cluster.txt"
+            [String []] $cmds = "Get-NetIntentAllGoalStates -ClusterName $($Cluster.Name) | ConvertTo-Json -Depth 10"
+            ExecCommands -OutDir $dir -File $file -Commands $cmds
+        }
+    } # ATCDetail ()
+}
+
 function ServicesDrivers {
     [CmdletBinding()]
     Param(
@@ -2146,7 +2194,7 @@ function ServicesDrivers {
     $file = "dism.txt"
     [String []] $cmds = "dism /online /get-features"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-    
+
 } # ServicesDrivers()
 
 function VMHostDetail {
@@ -2617,10 +2665,10 @@ function Completion {
     If present, skip the Netsh Trace data gather phases.
 
 .PARAMETER SkipCounters
-    If present, skip the Windows Performance Counters (WPM) data gather phases.    
+    If present, skip the Windows Performance Counters (WPM) data gather phases.
 
 .PARAMETER SkipVm
-    If present, skip the Virtual Machine (VM) data gather phases.        
+    If present, skip the Virtual Machine (VM) data gather phases.
 
 .EXAMPLE
     Get-NetView -OutputDirectory ".\"
@@ -2690,6 +2738,7 @@ function Get-NetView {
             NetIp             -OutDir $workDir
             NetNatDetail      -OutDir $workDir
             HNSDetail         -OutDir $workDir
+            ATCDetail         -OutDir $workDir
         }
 
         # Wait for threads to complete
@@ -2709,7 +2758,7 @@ function Get-NetView {
 
 # For backwards compat, support direct execution as a .ps1 file (no dot sourcing needed).
 if (-not [String]::IsNullOrEmpty($MyInvocation.InvocationName)) {
-    if (($MyInvocation.InvocationName -eq "&") -or 
+    if (($MyInvocation.InvocationName -eq "&") -or
         ($MyInvocation.MyCommand.Path -eq (Resolve-Path -Path $MyInvocation.InvocationName).ProviderPath)) {
         Get-NetView @args
     }
