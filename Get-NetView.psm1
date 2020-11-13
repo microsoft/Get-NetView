@@ -2738,7 +2738,7 @@ function Get-NetView {
             NetIp             -OutDir $workDir
             NetNatDetail      -OutDir $workDir
             HNSDetail         -OutDir $workDir
-            ATCDetail         -OutDir $workDir
+            #ATCDetail         -OutDir $workDir
         }
 
         # Wait for threads to complete
