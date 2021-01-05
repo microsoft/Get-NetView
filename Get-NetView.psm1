@@ -1123,7 +1123,8 @@ function MellanoxDetailPerNic {
                             "$env:windir\Temp\Native*$deviceLocation*.log",
                             "$env:windir\Temp\Master*$deviceLocation*.log",
                             "$env:windir\Temp\ML?X5*$deviceLocation*.log",
-                            "$env:windir\Temp\mlx5*$deviceLocation*.log"
+                            "$env:windir\Temp\mlx5*$deviceLocation*.log",
+                            "$env:windir\Temp\FwTrace"
         ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $destination
     }
 } # MellanoxDetailPerNic()
