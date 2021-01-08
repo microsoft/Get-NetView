@@ -2252,6 +2252,8 @@ function NetshTrace {
 
     #$wpp_vswitch  = "{1F387CBC-6818-4530-9DB6-5F1058CD7E86}"
     #$wpp_ndis     = "{DD7A21E6-A651-46D4-B7C2-66543067B869}"
+    #$etw_tcpip    = "{2F07E2EE-15DB-40F1-90EF-9D7BA282188A}"
+    #$etw_quic     = "{ff15e657-4f26-570e-88ab-0796b258d11c}"
 
     # The sequence below triggers the ETW providers to dump their internal traces when the session starts.  Thus allowing for capturing a
     # snapshot of their logs/traces.
@@ -2261,6 +2263,8 @@ function NetshTrace {
     [String []] $cmds = "New-NetEventSession    NetRundown -CaptureMode SaveToFile -LocalFilePath $dir\NetRundown.etl",
                         "Add-NetEventProvider   ""{1F387CBC-6818-4530-9DB6-5F1058CD7E86}"" -SessionName NetRundown -Level 1 -MatchAnyKeyword 0x10000",
                         "Add-NetEventProvider   ""{DD7A21E6-A651-46D4-B7C2-66543067B869}"" -SessionName NetRundown -Level 1 -MatchAnyKeyword 0x2",
+                        "Add-NetEventProvider   ""{2F07E2EE-15DB-40F1-90EF-9D7BA282188A}"" -SessionName NetRundown -Level 4",
+                        "Add-NetEventProvider   ""{ff15e657-4f26-570e-88ab-0796b258d11c}"" -SessionName NetRundown -Level 5 -MatchAnyKeyword 0x80000000",
                         "Start-NetEventSession  NetRundown",
                         "Stop-NetEventSession   NetRundown",
                         "Remove-NetEventSession NetRundown"
