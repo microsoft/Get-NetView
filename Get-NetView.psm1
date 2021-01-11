@@ -2442,10 +2442,7 @@ function Sanity {
         [parameter(Mandatory=$true)] [Hashtable] $Params
     )
 
-    $dir  = (Join-Path -Path $OutDir -ChildPath "Sanity")
-    New-Item -ItemType directory -Path $dir | Out-Null
-
-    Write-Progress -Activity $Global:FinishActivity -Status "Processing output..."
+    $dir = $OutDir
 
     $file = "Get-ChildItem.txt"
     [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash -Algorithm SHA1 | Format-Table -AutoSize | Out-String -Width $columns"
@@ -2461,6 +2458,37 @@ function Sanity {
     [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm SHA1 | Format-List -Property * | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 } # Sanity()
+
+function LogPostProcess {
+    [CmdletBinding()]
+    Param(
+        [parameter(Mandatory=$true)] [String] $OutDir
+    )
+
+    $dir = $OutDir
+    $file = "Command-Time.log"
+    $out = Join-Path $dir $file
+
+    $cmdData = Get-Content "$dir\Get-NetView.log" | where {$_ -like "(* ms)*"}
+    $table = $cmdData | foreach {
+        $time, $cmd = ($_ -replace "^\(\s*","") -split " ms\) "
+        [PSCustomObject] @{
+            "Time (ms)" = $time -as [Int]
+            "Command" = $cmd
+        }
+    }
+    $table = $table | sort -Property "Time (ms)" -Descending
+
+    $stats = $table."Time (ms)" | measure -Average -Sum
+    $roundedAvg = [Math]::Round($stats.Average, 2)
+    $lazyMedian = $table."Time (ms)"[$table.Count / 2]
+    $variance = ($table."Time (ms)" | foreach {[Math]::pow($_ - $stats.Average, 2)} | measure -Average).Average
+    $stdDev = [Math]::Round([Math]::Sqrt($variance), 2)
+    $timeSec = [Math]::Round($stats.Sum / 1000, 2)
+
+    Write-Output "Average = $roundedAvg ms, Median = $lazyMedian ms, StdDev = $stdDev ms, Sum = $timeSec s, Count = $($stats.Count)" | Out-File -Encoding ascii -Append $out
+    Write-Output $table | Out-String -Width $columns | Out-File -Encoding ascii -Append $out
+} # LogPostProcess()
 
 #
 # Setup & Validation Functions
@@ -2574,6 +2602,15 @@ function Completion {
         [parameter(Mandatory=$true)] [String] $Src
     )
 
+    $logDir  = (Join-Path -Path $Src -ChildPath "_Logs")
+    New-Item -ItemType directory -Path $logDir | Out-Null
+
+    Close-GlobalThreadPool
+
+    Write-Progress -Activity $Global:FinishActivity -Status "Processing output..."
+    Sanity -OutDir $logDir -Params $PSBoundParameters
+
+    # Collect statistics
     $timestamp = $start | Get-Date -f yyyy.MM.dd_hh.mm.ss
 
     $dirs = (Get-ChildItem $Src -Recurse | Measure-Object -Property length -Sum) # out folder size
@@ -2598,10 +2635,14 @@ function Completion {
     Write-Host "$($delta.Minutes) Min $($delta.Seconds) Sec"
     Write-Host ""
 
-    TryCmd {Stop-Transcript}
+    try {
+        Stop-Transcript
+        Move-Item -Path "$Src\Get-NetView.log" -Destination "$logDir\Get-NetView.log"
 
-    # Sort Get-NetView.log by sub-command execution time
-    Get-Content $Src\Get-NetView.log | Sort-Object -Descending > $Src\Get-NetView-Time.Log
+        LogPostProcess -OutDir $logDir
+    } catch {
+        Write-Output "Stop-Transcript failed" | Out-File -Encoding ascii -Append "$logDir\Get-NetView.log"
+    }
 
     Write-Progress -Activity $Global:FinishActivity -Status "Creating zip..."
     $outzip = "$Src-$timestamp.zip"
@@ -2754,9 +2795,6 @@ function Get-NetView {
 
         throw $_
     } finally {
-        Close-GlobalThreadPool
-
-        Sanity -OutDir $workDir -Params $PSBoundParameters
         Completion -Src $workDir
     }
 } # Get-NetView
