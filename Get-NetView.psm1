@@ -2482,8 +2482,8 @@ function LogPostProcess {
     $stdDev = [Math]::Round([Math]::Sqrt($variance), 2)
     $timeSec = [Math]::Round($stats.Sum / 1000, 2)
 
-    Write-Output "Average = $roundedAvg ms, Median = $lazyMedian ms, StdDev = $stdDev ms, Sum = $timeSec s" | Out-File -Encoding ascii -Append $out
-    Write-Output $table | Out-File -Encoding ascii -Append $out
+    Write-Output "Average = $roundedAvg ms, Median = $lazyMedian ms, StdDev = $stdDev ms, Sum = $timeSec s, Count = $($stats.Count)" | Out-File -Encoding ascii -Append $out
+    Write-Output $table | Out-String -Width $columns | Out-File -Encoding ascii -Append $out
 } # LogPostProcess()
 
 #
@@ -2637,7 +2637,7 @@ function Completion {
 
         LogPostProcess -OutDir $logDir
     } catch {
-        Write-Output "Stop-Transcript failed" | Out-File -Encoding ascii -Append "$Src\Get-NetView.log"
+        Write-Output "Stop-Transcript failed" | Out-File -Encoding ascii -Append "$logDir\Get-NetView.log"
     }
 
     Write-Progress -Activity $Global:FinishActivity -Status "Creating zip..."
