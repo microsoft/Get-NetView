@@ -1504,7 +1504,7 @@ function HostVNicDetail {
     )
 
     # Cache output
-    $allNetAdapters = Get-NetAdapter
+    $allNetAdapters = Get-NetAdapter -IncludeHidden
 
     foreach ($hnic in TryCmd {Get-VMNetworkAdapter -ManagementOS} | where {$_.SwitchId -eq $VMSwitchId}) {
         # Use device ID to find corresponding NetAdapter instance
