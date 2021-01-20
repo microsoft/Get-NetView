@@ -1,4 +1,4 @@
-$Global:Version = "2021.1.11.134"
+$Global:Version = "2021.1.20.135"
 
 $Global:ThreadPool = $null
 $Global:QueueActivity = "Queueing tasks..."
