@@ -582,7 +582,9 @@ function NetAdapterWorker {
 
     $file = "Get-NetAdapterRdma.txt"
     [String []] $cmds = "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Format-List -Property *"
+                        "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Format-List -Property *",
+                        "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Select-Object -ExpandProperty RdmaAdapterInfo",
+                        "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Select-Object -ExpandProperty RdmaMissingCounterInfo"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterPacketDirect.txt"
