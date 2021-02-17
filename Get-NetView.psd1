@@ -15,7 +15,7 @@ RootModule = 'Get-NetView.psm1'
 ModuleVersion = '2021.2.10.138'
 
 # Supported PSEditions
-# CompatiblePSEditions = @()
+CompatiblePSEditions = @('Desktop', 'Core')
 
 # ID used to uniquely identify this module
 GUID = '72f13048-50c0-44fd-b7f1-369e98319092'

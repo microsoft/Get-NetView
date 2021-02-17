@@ -2103,53 +2103,57 @@ function QosDetail {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # QosDetail()
 
-# Only run if Azure Stack HCI Edition
-$edition = Get-WindowsEdition -Online
-if ($edition.Edition -eq 'ServerAzureStackHCICor') {
-    Function ATCDetail {
-        [CmdletBinding()]
+function ATCDetail {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$true)] [String] $OutDir
+    )
 
-        param (
-            [parameter(Mandatory=$true)] [String] $OutDir
-        )
+    # Only run if Azure Stack HCI Edition
+    $edition = Get-WindowsEdition -Online
+    if ($edition.Edition -eq 'ServerAzureStackHCICor') {
+        return
+    }
 
-        $dir = (Join-Path -Path $OutDir -ChildPath "ATC")
-        New-Item -ItemType directory -Path $dir | Out-Null
+    $dir = (Join-Path -Path $OutDir -ChildPath "ATC")
+    New-Item -ItemType directory -Path $dir | Out-Null
 
-        # Local Intents
-        $IntentExists = Get-NetIntent
+    # Local Intents
+    $IntentExists = Get-NetIntent
 
-        $file = "Get-NetIntent_Standalone.txt"
-        [String []] $cmds = "Get-NetIntent"
+    $file = "Get-NetIntent_Standalone.txt"
+    [String []] $cmds = "Get-NetIntent"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    $file = "Get-NetIntentStatus_Standalone.txt"
+    [String []] $cmds = "Get-NetIntentStatus"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    $file = "Get-NetIntentAllGoalStates_Standalone.txt"
+    [String []] $cmds = "Get-NetIntentAllGoalStates | ConvertTo-Json -Depth 10"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    # Cluster Intents
+    try {
+        $cluster = Get-Cluster -ErrorAction "Stop"
+    } catch {
+        $cluster = $null
+    }
+
+    if ($cluster) {
+        $file = "Get-NetIntent_Cluster.txt"
+        [String []] $cmds = "Get-NetIntent -ClusterName $($cluster.Name)"
         ExecCommands -OutDir $dir -File $file -Commands $cmds
 
-        $file = "Get-NetIntentStatus_Standalone.txt"
-        [String []] $cmds = "Get-NetIntentStatus"
+        $file = "Get-NetIntentStatus_Cluster.txt"
+        [String []] $cmds = "Get-NetIntentStatus -ClusterName $($cluster.Name)"
         ExecCommands -OutDir $dir -File $file -Commands $cmds
 
-        $file = "Get-NetIntentAllGoalStates_Standalone.txt"
-        [String []] $cmds = "Get-NetIntentAllGoalStates | ConvertTo-Json -Depth 10"
+        $file = "Get-NetIntentAllGoalStates_Cluster.txt"
+        [String []] $cmds = "Get-NetIntentAllGoalStates -ClusterName $($cluster.Name) | ConvertTo-Json -Depth 10"
         ExecCommands -OutDir $dir -File $file -Commands $cmds
-
-        # Cluster Intents
-        try   { $Cluster =  Get-Cluster -ErrorAction SilentlyContinue }
-        Catch { Remove-Variable Cluster -ErrorAction SilentlyContinue }
-
-        if ($Cluster) {
-            $file = "Get-NetIntent_Cluster.txt"
-            [String []] $cmds = "Get-NetIntent -ClusterName $($Cluster.Name)"
-            ExecCommands -OutDir $dir -File $file -Commands $cmds
-
-            $file = "Get-NetIntentStatus_Cluster.txt"
-            [String []] $cmds = "Get-NetIntentStatus -ClusterName $($Cluster.Name)"
-            ExecCommands -OutDir $dir -File $file -Commands $cmds
-
-            $file = "Get-NetIntentAllGoalStates_Cluster.txt"
-            [String []] $cmds = "Get-NetIntentAllGoalStates -ClusterName $($Cluster.Name) | ConvertTo-Json -Depth 10"
-            ExecCommands -OutDir $dir -File $file -Commands $cmds
-        }
-    } # ATCDetail ()
-}
+    }
+} # ATCDetail ()
 
 function ServicesDrivers {
     [CmdletBinding()]
