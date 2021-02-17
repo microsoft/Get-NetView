@@ -33,7 +33,7 @@ Copyright = '(c) 2021 Inc. All rights reserved.'
 Description = 'Get-NetView is a tool used to simplify the collection of network configuration information for diagnosis of networking issues on Windows'
 
 # Minimum version of the Windows PowerShell engine required by this module
-# PowerShellVersion = ''
+PowerShellVersion = '5.1'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''
