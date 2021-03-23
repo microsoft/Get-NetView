@@ -1068,8 +1068,11 @@ function MellanoxDetailPerNic {
 
         $file = "$toolName-Snapshot.txt"
         [String []] $cmds = "&""$toolPath"" -SnapShot -name ""$NicName"""
-        (Get-NetAdapterSriovVf -Name "$NicName" -ErrorAction SilentlyContinue).FunctionID | foreach {
-            $cmds += "&""$toolPath"" -SnapShot -VfStats -name ""$NicName"" -vf $_ -register"
+        $functionIds = (Get-NetAdapterSriovVf -Name "$NicName" -ErrorAction SilentlyContinue).FunctionID
+        if($functionIds -ne $null) {
+            foreach ($id in $functionIds) {
+                $cmds += "&""$toolPath"" -SnapShot -VfStats -name ""$NicName"" -vf $id -register"
+            }
         }
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
     } else {
@@ -1079,7 +1082,7 @@ function MellanoxDetailPerNic {
     #
     # Enumerate device location string
     #
-    if ((Get-NetAdapter -Name $NicName).InterfaceDescription -like "*Mellanox*Virtual*Adapter*") {
+    if ((Get-NetAdapterHardwareInfo -Name $NicName).LocationInformationString -like "*Virtual*") {
         [String[]] $locationInfoArray = (Get-NetAdapterHardwareInfo -Name $NicName).LocationInformationString -split " "
 
         $slot   = $locationInfoArray[$locationInfoArray.IndexOf("Slot") + 1]
