@@ -2645,9 +2645,9 @@ function Completion {
     Write-Host ""
 
     try {
-        Stop-Transcript
+        Stop-Transcript | Out-Null
         Move-Item -Path "$Src\Get-NetView.log" -Destination "$logDir\Get-NetView.log"
-
+        Write-Output "Transcript stopped, output file is $logDir\Get-NetView.log"
         LogPostProcess -OutDir $logDir
     } catch {
         Write-Output "Stop-Transcript failed" | Out-File -Encoding ascii -Append "$logDir\Get-NetView.log"
