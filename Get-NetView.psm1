@@ -1,4 +1,4 @@
-$Global:Version = "2021.5.17.144"
+$Global:Version = "2021.6.25.147"
 
 $Global:ThreadPool = $null
 $Global:NetAdapterTracker = @()
