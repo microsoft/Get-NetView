@@ -1,6 +1,8 @@
 $Global:Version = "2021.5.17.144"
 
 $Global:ThreadPool = $null
+$Global:NetAdapterTracker = @()
+
 $Global:QueueActivity = "Queueing tasks..."
 $Global:FinishActivity = "Finishing..."
 
@@ -645,6 +647,8 @@ function NetAdapterWorkerPrepare {
     $desc  = $nic.InterfaceDescription
     $title = "$type.$idx.$name"
 
+    $Global:NetAdapterTracker += $nic.ifIndex
+
     if ("$desc") {
         $title = "$title.$desc"
     }
@@ -759,36 +763,10 @@ function NativeNicDetail {
 
     $dir = $OutDir
 
-    # Cache output
-    $vmsNicNames = TryCmd {(Get-NetAdapterBinding -ComponentID "vms_pp" | where {$_.Enabled -eq $true}).Name}
-    $lbfoNicNames = TryCmd {(Get-NetLbfoTeamMember).Name}
-
-    foreach ($nic in Get-NetAdapter -IncludeHidden) {
-        $native = $true
-
-        # Skip vSwitch Host vNICs by checking the driver
-        if ($nic.DriverFileName -in @("vmswitch.sys", "VmsProxyHNic.sys")) {
-            continue
-        }
-
-        # Skip LBFO TNICs by checking the driver
-        if ($nic.DriverFileName -like "NdisImPlatform.sys") {
-            continue
-        }
-
-        # Skip all vSwitch Protocol NICs
-        if ($nic.Name -in $vmsNicNames) {
-            $native = $false
-        }
-
-        # Skip LBFO Team Member Adapters
-        if ($nic.Name -in $lbfoNicNames) {
-            $native = $false
-        }
-
-        if ($native) {
-            NetAdapterWorkerPrepare -NicName $nic.Name -OutDir $dir
-        }
+    # Query all remaining NetAdapters
+    $nics = Get-NetAdapter -IncludeHidden | where {$_.ifIndex -notin $Global:NetAdapterTracker}
+    foreach ($nic in $nics) {
+        NetAdapterWorkerPrepare -NicName $nic.Name -OutDir $dir
     }
 } # NativeNicDetail()
 
