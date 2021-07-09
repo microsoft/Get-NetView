@@ -1,6 +1,8 @@
-$Global:Version = "2020.9.26.120"
+$Global:Version = "2021.6.25.147"
 
 $Global:ThreadPool = $null
+$Global:NetAdapterTracker = @()
+
 $Global:QueueActivity = "Queueing tasks..."
 $Global:FinishActivity = "Finishing..."
 
@@ -582,7 +584,9 @@ function NetAdapterWorker {
 
     $file = "Get-NetAdapterRdma.txt"
     [String []] $cmds = "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
-                        "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Format-List -Property *"
+                        "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Format-List -Property *",
+                        "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Select-Object -ExpandProperty RdmaAdapterInfo",
+                        "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Select-Object -ExpandProperty RdmaMissingCounterInfo"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterPacketDirect.txt"
@@ -642,6 +646,8 @@ function NetAdapterWorkerPrepare {
     $idx   = $nic.InterfaceIndex
     $desc  = $nic.InterfaceDescription
     $title = "$type.$idx.$name"
+
+    $Global:NetAdapterTracker += $nic.ifIndex
 
     if ("$desc") {
         $title = "$title.$desc"
@@ -757,36 +763,10 @@ function NativeNicDetail {
 
     $dir = $OutDir
 
-    # Cache output
-    $vmsNicNames = TryCmd {(Get-NetAdapterBinding -ComponentID "vms_pp" | where {$_.Enabled -eq $true}).Name}
-    $lbfoNicNames = TryCmd {(Get-NetLbfoTeamMember).Name}
-
-    foreach ($nic in Get-NetAdapter -IncludeHidden) {
-        $native = $true
-
-        # Skip vSwitch Host vNICs by checking the driver
-        if ($nic.DriverFileName -in @("vmswitch.sys", "VmsProxyHNic.sys")) {
-            continue
-        }
-
-        # Skip LBFO TNICs by checking the driver
-        if ($nic.DriverFileName -like "NdisImPlatform.sys") {
-            continue
-        }
-
-        # Skip all vSwitch Protocol NICs
-        if ($nic.Name -in $vmsNicNames) {
-            $native = $false
-        }
-
-        # Skip LBFO Team Member Adapters
-        if ($nic.Name -in $lbfoNicNames) {
-            $native = $false
-        }
-
-        if ($native) {
-            NetAdapterWorkerPrepare -NicName $nic.Name -OutDir $dir
-        }
+    # Query all remaining NetAdapters
+    $nics = Get-NetAdapter -IncludeHidden | where {$_.ifIndex -notin $Global:NetAdapterTracker}
+    foreach ($nic in $nics) {
+        NetAdapterWorkerPrepare -NicName $nic.Name -OutDir $dir
     }
 } # NativeNicDetail()
 
@@ -844,7 +824,7 @@ function ChelsioDetailPerASIC {
 
     $file = "ChelsioDetail-Dumps-BusDevice$i.txt"
     [String []] $cmds = "cxgbtool.exe $ifNameVbd hardware flash ""$dir\Hardware-BusDevice$i-flash.dmp""",
-                        "cxgbtool.exe $ifNameVbd cudbg collect all ""$dir\Cudbg-Collect.dmp"" safe",
+                        "cxgbtool.exe $ifNameVbd cudbg collect all ""$dir\Cudbg-Collect.dmp""",
                         "cxgbtool.exe $ifNameVbd cudbg readflash ""$dir\Cudbg-Readflash.dmp"""
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # ChelsioDetailPerASIC()
@@ -1063,11 +1043,14 @@ function MellanoxDetailPerNic {
     if ($DriverName -eq "WinOF2"){
         $toolName = $driverFileName -replace ".sys", "Cmd"
         $toolPath = "$driverDir\Management Tools\$toolName.exe"
-    
+
         $file = "$toolName-Snapshot.txt"
         [String []] $cmds = "&""$toolPath"" -SnapShot -name ""$NicName"""
-        (Get-NetAdapterSriovVf -Name "$NicName" -ErrorAction SilentlyContinue).FunctionID | foreach {
-            $cmds += "&""$toolPath"" -SnapShot -VfStats -name ""$NicName"" -vf $_ -register"
+        $functionIds = (Get-NetAdapterSriovVf -Name "$NicName" -ErrorAction SilentlyContinue).FunctionID
+        if($functionIds -ne $null) {
+            foreach ($id in $functionIds) {
+                $cmds += "&""$toolPath"" -SnapShot -VfStats -name ""$NicName"" -vf $id -register"
+            }
         }
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
     } else {
@@ -1077,7 +1060,7 @@ function MellanoxDetailPerNic {
     #
     # Enumerate device location string
     #
-    if ((Get-NetAdapter -Name $NicName).InterfaceDescription -like "*Mellanox*Virtual*Adapter*") {
+    if ((Get-NetAdapterHardwareInfo -Name $NicName).LocationInformationString -like "*Virtual*") {
         [String[]] $locationInfoArray = (Get-NetAdapterHardwareInfo -Name $NicName).LocationInformationString -split " "
 
         $slot   = $locationInfoArray[$locationInfoArray.IndexOf("Slot") + 1]
@@ -1123,7 +1106,8 @@ function MellanoxDetailPerNic {
                             "$env:windir\Temp\Native*$deviceLocation*.log",
                             "$env:windir\Temp\Master*$deviceLocation*.log",
                             "$env:windir\Temp\ML?X5*$deviceLocation*.log",
-                            "$env:windir\Temp\mlx5*$deviceLocation*.log"
+                            "$env:windir\Temp\mlx5*$deviceLocation*.log",
+                            "$env:windir\Temp\FwTrace"
         ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $destination
     }
 } # MellanoxDetailPerNic()
@@ -1160,7 +1144,7 @@ function MellanoxSystemDetail {
 
     $file = "Copy-LogFiles.txt"
     $destination = Join-Path $dir "LogFiles"
-    
+
     $mlxEtl = "Mellanox{0}.etl*" -f $(if ($DriverName -eq "WinOF2") {"-WinOF2*"} else {"-System*"})
     $mlxLog = "MLNX_WINOF{0}.log"  -f $(if ($DriverName -eq "WinOF2") {"2"})
 
@@ -1503,7 +1487,7 @@ function HostVNicDetail {
     )
 
     # Cache output
-    $allNetAdapters = Get-NetAdapter
+    $allNetAdapters = Get-NetAdapter -IncludeHidden
 
     foreach ($hnic in TryCmd {Get-VMNetworkAdapter -ManagementOS} | where {$_.SwitchId -eq $VMSwitchId}) {
         # Use device ID to find corresponding NetAdapter instance
@@ -1750,7 +1734,7 @@ function VfpExtensionDetail {
     [String []] $cmds = "Get-CimInstance -ClassName ""CIM_DataFile"" -Filter ""Name='$vfpExtPath'"""
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
-    $currSwitch = Get-CimInstance -Filter "Name='$id'" -ClassName "Msvm_VirtualEthernetSwitch" -Namespace "Root\Virtualization\v2" 
+    $currSwitch = Get-CimInstance -Filter "Name='$id'" -ClassName "Msvm_VirtualEthernetSwitch" -Namespace "Root\Virtualization\v2"
     $ports = Get-CimAssociatedInstance -InputObject $currSwitch -ResultClassName "Msvm_EthernetSwitchPort"
 
     foreach ($portGuid in $ports.Name) {
@@ -1783,7 +1767,7 @@ function VMSwitchDetail {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "NvspInfo_bindings.txt"
-    [String []] $cmds = "nvspinfo -a -i -h -D -p -d -m -q -b "    
+    [String []] $cmds = "nvspinfo -a -i -h -D -p -d -m -q -b "
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "NvspInfo_ExecMon.txt"
@@ -1877,8 +1861,7 @@ function NetworkSummary {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "_netstat.txt"
-    [String []] $cmds = "netstat",
-                        "netstat -nasert",
+    [String []] $cmds = "netstat -nasert",
                         "netstat -an",
                         "netstat -xan | ? {`$_ -match ""445""}"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
@@ -2101,6 +2084,58 @@ function QosDetail {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # QosDetail()
 
+function ATCDetail {
+    [CmdletBinding()]
+    param (
+        [parameter(Mandatory=$true)] [String] $OutDir
+    )
+
+    # Only run if Azure Stack HCI Edition
+    $edition = Get-WindowsEdition -Online
+    if ($edition.Edition -eq 'ServerAzureStackHCICor') {
+        return
+    }
+
+    $dir = (Join-Path -Path $OutDir -ChildPath "ATC")
+    New-Item -ItemType directory -Path $dir | Out-Null
+
+    # Local Intents
+    $IntentExists = Get-NetIntent
+
+    $file = "Get-NetIntent_Standalone.txt"
+    [String []] $cmds = "Get-NetIntent"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    $file = "Get-NetIntentStatus_Standalone.txt"
+    [String []] $cmds = "Get-NetIntentStatus"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    $file = "Get-NetIntentAllGoalStates_Standalone.txt"
+    [String []] $cmds = "Get-NetIntentAllGoalStates | ConvertTo-Json -Depth 10"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    # Cluster Intents
+    try {
+        $cluster = Get-Cluster -ErrorAction "Stop"
+    } catch {
+        $cluster = $null
+    }
+
+    if ($cluster) {
+        $file = "Get-NetIntent_Cluster.txt"
+        [String []] $cmds = "Get-NetIntent -ClusterName $($cluster.Name)"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+        $file = "Get-NetIntentStatus_Cluster.txt"
+        [String []] $cmds = "Get-NetIntentStatus -ClusterName $($cluster.Name)"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+        $file = "Get-NetIntentAllGoalStates_Cluster.txt"
+        [String []] $cmds = "Get-NetIntentAllGoalStates -ClusterName $($cluster.Name) | ConvertTo-Json -Depth 10"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
+    }
+} # ATCDetail ()
+
 function ServicesDrivers {
     [CmdletBinding()]
     Param(
@@ -2147,7 +2182,7 @@ function ServicesDrivers {
     $file = "dism.txt"
     [String []] $cmds = "dism /online /get-features"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-    
+
 } # ServicesDrivers()
 
 function VMHostDetail {
@@ -2204,6 +2239,8 @@ function NetshTrace {
 
     #$wpp_vswitch  = "{1F387CBC-6818-4530-9DB6-5F1058CD7E86}"
     #$wpp_ndis     = "{DD7A21E6-A651-46D4-B7C2-66543067B869}"
+    #$etw_tcpip    = "{2F07E2EE-15DB-40F1-90EF-9D7BA282188A}"
+    #$etw_quic     = "{ff15e657-4f26-570e-88ab-0796b258d11c}"
 
     # The sequence below triggers the ETW providers to dump their internal traces when the session starts.  Thus allowing for capturing a
     # snapshot of their logs/traces.
@@ -2213,6 +2250,8 @@ function NetshTrace {
     [String []] $cmds = "New-NetEventSession    NetRundown -CaptureMode SaveToFile -LocalFilePath $dir\NetRundown.etl",
                         "Add-NetEventProvider   ""{1F387CBC-6818-4530-9DB6-5F1058CD7E86}"" -SessionName NetRundown -Level 1 -MatchAnyKeyword 0x10000",
                         "Add-NetEventProvider   ""{DD7A21E6-A651-46D4-B7C2-66543067B869}"" -SessionName NetRundown -Level 1 -MatchAnyKeyword 0x2",
+                        "Add-NetEventProvider   ""{2F07E2EE-15DB-40F1-90EF-9D7BA282188A}"" -SessionName NetRundown -Level 4",
+                        "Add-NetEventProvider   ""{ff15e657-4f26-570e-88ab-0796b258d11c}"" -SessionName NetRundown -Level 5 -MatchAnyKeyword 0x80000000",
                         "Start-NetEventSession  NetRundown",
                         "Stop-NetEventSession   NetRundown",
                         "Remove-NetEventSession NetRundown"
@@ -2390,10 +2429,7 @@ function Sanity {
         [parameter(Mandatory=$true)] [Hashtable] $Params
     )
 
-    $dir  = (Join-Path -Path $OutDir -ChildPath "Sanity")
-    New-Item -ItemType directory -Path $dir | Out-Null
-
-    Write-Progress -Activity $Global:FinishActivity -Status "Processing output..."
+    $dir = $OutDir
 
     $file = "Get-ChildItem.txt"
     [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash -Algorithm SHA1 | Format-Table -AutoSize | Out-String -Width $columns"
@@ -2409,6 +2445,37 @@ function Sanity {
     [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm SHA1 | Format-List -Property * | Out-String -Width $columns"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 } # Sanity()
+
+function LogPostProcess {
+    [CmdletBinding()]
+    Param(
+        [parameter(Mandatory=$true)] [String] $OutDir
+    )
+
+    $dir = $OutDir
+    $file = "Command-Time.log"
+    $out = Join-Path $dir $file
+
+    $cmdData = Get-Content "$dir\Get-NetView.log" | where {$_ -like "(* ms)*"}
+    $table = $cmdData | foreach {
+        $time, $cmd = ($_ -replace "^\(\s*","") -split " ms\) "
+        [PSCustomObject] @{
+            "Time (ms)" = $time -as [Int]
+            "Command" = $cmd
+        }
+    }
+    $table = $table | sort -Property "Time (ms)" -Descending
+
+    $stats = $table."Time (ms)" | measure -Average -Sum
+    $roundedAvg = [Math]::Round($stats.Average, 2)
+    $lazyMedian = $table."Time (ms)"[$table.Count / 2]
+    $variance = ($table."Time (ms)" | foreach {[Math]::pow($_ - $stats.Average, 2)} | measure -Average).Average
+    $stdDev = [Math]::Round([Math]::Sqrt($variance), 2)
+    $timeSec = [Math]::Round($stats.Sum / 1000, 2)
+
+    Write-Output "Average = $roundedAvg ms, Median = $lazyMedian ms, StdDev = $stdDev ms, Sum = $timeSec s, Count = $($stats.Count)" | Out-File -Encoding ascii -Append $out
+    Write-Output $table | Out-String -Width $columns | Out-File -Encoding ascii -Append $out
+} # LogPostProcess()
 
 #
 # Setup & Validation Functions
@@ -2522,6 +2589,15 @@ function Completion {
         [parameter(Mandatory=$true)] [String] $Src
     )
 
+    $logDir  = (Join-Path -Path $Src -ChildPath "_Logs")
+    New-Item -ItemType directory -Path $logDir | Out-Null
+
+    Close-GlobalThreadPool
+
+    Write-Progress -Activity $Global:FinishActivity -Status "Processing output..."
+    Sanity -OutDir $logDir -Params $PSBoundParameters
+
+    # Collect statistics
     $timestamp = $start | Get-Date -f yyyy.MM.dd_hh.mm.ss
 
     $dirs = (Get-ChildItem $Src -Recurse | Measure-Object -Property length -Sum) # out folder size
@@ -2546,7 +2622,14 @@ function Completion {
     Write-Host "$($delta.Minutes) Min $($delta.Seconds) Sec"
     Write-Host ""
 
-    TryCmd {Stop-Transcript}
+    try {
+        Stop-Transcript | Out-Null
+        Move-Item -Path "$Src\Get-NetView.log" -Destination "$logDir\Get-NetView.log"
+        Write-Output "Transcript stopped, output file is $logDir\Get-NetView.log"
+        LogPostProcess -OutDir $logDir
+    } catch {
+        Write-Output "Stop-Transcript failed" | Out-File -Encoding ascii -Append "$logDir\Get-NetView.log"
+    }
 
     Write-Progress -Activity $Global:FinishActivity -Status "Creating zip..."
     $outzip = "$Src-$timestamp.zip"
@@ -2615,10 +2698,10 @@ function Completion {
     If present, skip the Netsh Trace data gather phases.
 
 .PARAMETER SkipCounters
-    If present, skip the Windows Performance Counters (WPM) data gather phases.    
+    If present, skip the Windows Performance Counters (WPM) data gather phases.
 
 .PARAMETER SkipVm
-    If present, skip the Virtual Machine (VM) data gather phases.        
+    If present, skip the Virtual Machine (VM) data gather phases.
 
 .EXAMPLE
     Get-NetView -OutputDirectory ".\"
@@ -2688,6 +2771,7 @@ function Get-NetView {
             NetIp             -OutDir $workDir
             NetNatDetail      -OutDir $workDir
             HNSDetail         -OutDir $workDir
+            #ATCDetail         -OutDir $workDir
         }
 
         # Wait for threads to complete
@@ -2698,16 +2782,13 @@ function Get-NetView {
 
         throw $_
     } finally {
-        Close-GlobalThreadPool
-
-        Sanity -OutDir $workDir -Params $PSBoundParameters
         Completion -Src $workDir
     }
 } # Get-NetView
 
 # For backwards compat, support direct execution as a .ps1 file (no dot sourcing needed).
 if (-not [String]::IsNullOrEmpty($MyInvocation.InvocationName)) {
-    if (($MyInvocation.InvocationName -eq "&") -or 
+    if (($MyInvocation.InvocationName -eq "&") -or
         ($MyInvocation.MyCommand.Path -eq (Resolve-Path -Path $MyInvocation.InvocationName).ProviderPath)) {
         Get-NetView @args
     }
