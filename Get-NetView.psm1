@@ -1198,10 +1198,10 @@ using Microsoft.Win32.SafeHandles;
 
 public class MarvellGetDiagData
 {
-    private const uint QEBDRV_DIAG_OID = 0x80002538;
-    private const uint EBDRV_DIAG_OID = 0x80002130;
-    private const uint NIC_DIAG_OID = 0x00170002;
-    private const uint L2ND2_DIAG_OID = 0xFF010148;
+    private const uint QEBDRV_DIAG_IOC = 0x80002538;
+    private const uint EBDRV_DIAG_IOC = 0x80002130;
+    private const uint NIC_DIAG_IOC = 0x00170002;
+    private const uint L2ND2_DIAG_IOC = 0xFF010148;
     private const uint QEBDRV_DIAG_MASK = 0xFFFDFFFF;
     private const uint EBDRV_DIAG_MASK = 0xFFFFFFFF;
     private const uint L2ND2_DIAG_MASK = 0xFFFFFFFF;
@@ -1269,7 +1269,7 @@ public class MarvellGetDiagData
                 DevPath = "\\\\?\\Global\\" + DeviceID.Replace("\\", "#");
                 DevPath += "#{5966d73c-bc2c-49b8-9315-c64c9919e976}";
 
-                ioctl_value = QEBDRV_DIAG_OID;
+                ioctl_value = QEBDRV_DIAG_IOC;
                 revision_set = QEBDRV_DIAG_REVISION;
                 data_mask_set = QEBDRV_DIAG_MASK;
             }
@@ -1278,7 +1278,7 @@ public class MarvellGetDiagData
                 DevPath = "\\\\?\\Global\\" + DeviceID.Replace("\\", "#");
                 DevPath += "#{ea22615e-c443-434f-9e45-c4e32d83e97d}";
 
-                ioctl_value = EBDRV_DIAG_OID;
+                ioctl_value = EBDRV_DIAG_IOC;
                 revision_set = EBDRV_DIAG_REVISION;
                 data_mask_set = EBDRV_DIAG_MASK;
             }
@@ -1286,7 +1286,7 @@ public class MarvellGetDiagData
             {
                 DevPath = "\\\\.\\" + DeviceID.Replace("\\", "#");
 
-                ioctl_value = NIC_DIAG_OID;
+                ioctl_value = NIC_DIAG_IOC;
                 revision_set = L2ND2_DIAG_REVISION;
                 data_mask_set = L2ND2_DIAG_MASK;
             }
@@ -1320,10 +1320,10 @@ public class MarvellGetDiagData
             byte[] OutBuffer = new byte[BYTE_SIZE];
             Array.Clear(OutBuffer, 0, OutBuffer.Length);
 
-            if (ioctl_value == NIC_DIAG_OID)
+            if (ioctl_value == NIC_DIAG_IOC)
             {
                 Marshal.Copy(ptr, OutBuffer, 0, InBufLen);
-                InBuffer = BitConverter.GetBytes(L2ND2_DIAG_OID);
+                InBuffer = BitConverter.GetBytes(L2ND2_DIAG_IOC);
             }
             else
             {
