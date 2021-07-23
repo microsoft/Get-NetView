@@ -1198,21 +1198,27 @@ using Microsoft.Win32.SafeHandles;
 
 public class MarvellGetDiagData
 {
-    private const uint B100_IOC_GET_IHV_DIAGNOSTIC_DATA = 0x80002538;
-    private const uint B10_IOC_GET_IHV_DIAGNOSTIC_DATA = 0x80002130;
-    private const uint B10_IHV_COLLECT_MASK = 0xFFFFFFFF;
-    private const uint B100_IHV_COLLECT_MASK = 0xFFFFFD7F;
-    private const uint IHV_DIAG_REVISION = 0x01;
-    private const int FILE_ATTRIBUTE_NORMAL = 0x00000080;
-    private const int BYTE_SIZE = (9 * 1024 * 1024);
-    public int code;
+    private const uint QEBDRV_DIAG_IOC = 0x80002538;
+    private const uint EBDRV_DIAG_IOC = 0x80002130;
+    private const uint NIC_DIAG_IOC = 0x00170002;
+    private const uint L2ND2_DIAG_IOC = 0xFF010148;
+    private const uint QEBDRV_DIAG_MASK = 0xFFFDFFFF;
+    private const uint EBDRV_DIAG_MASK = 0xFFFFFFFF;
+    private const uint L2ND2_DIAG_MASK = 0xFFFFFFFF;
+    private const uint SIGNATURE = 0x4488AACC;
+    private const uint QEBDRV_DIAG_REVISION = 0x01;
+    private const uint EBDRV_DIAG_REVISION = 0x01;
+    private const uint L2ND2_DIAG_REVISION = 0x01;
+
+    private const uint BYTE_SIZE = (9 * 1024 * 1024);
 
     [StructLayout(LayoutKind.Sequential)]
     public struct DiagInput_t
     {
         public uint revision;
         public uint data_mask;
-        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 6)]
+        public uint signature;
+        [MarshalAs(UnmanagedType.ByValArray, SizeConst = 5)]
         public int[] reserved;
     }
 
@@ -1230,7 +1236,7 @@ public class MarvellGetDiagData
     private static extern bool DeviceIoControl(
         SafeFileHandle hDevice,
         uint IoControlCode,
-        ref DiagInput_t InBuffer,
+        byte[] InBuffer,
         int nInBufferSize,
         byte[] OutBuffer,
         int nOutBufferSize,
@@ -1241,12 +1247,12 @@ public class MarvellGetDiagData
     public int MarvellGetDiagDataIoctl(string DeviceID, string FilePath, string ServiceName, StringBuilder ErrString)
     {
         bool bResult;
-        string FileName = string.Format("DiagData.bin");
+        string FileName;
+        uint revision_set;
         uint data_mask_set;
         uint ioctl_value;
         string DevPath;
         int bytesReturned = 0;
-        int bufSize = BYTE_SIZE;
         SafeFileHandle shwnd = null;
         FileStream file = null;
 
@@ -1258,20 +1264,31 @@ public class MarvellGetDiagData
 
         try
         {
-            // Generate device path from device id.
-            DevPath = "\\\\?\\Global\\" + DeviceID.Replace("\\","#");
-
             if (ServiceName.Equals("QEBDRV", StringComparison.OrdinalIgnoreCase))
             {
-                data_mask_set = B100_IHV_COLLECT_MASK;
-                ioctl_value = B100_IOC_GET_IHV_DIAGNOSTIC_DATA;
+                DevPath = "\\\\?\\Global\\" + DeviceID.Replace("\\", "#");
                 DevPath += "#{5966d73c-bc2c-49b8-9315-c64c9919e976}";
+
+                ioctl_value = QEBDRV_DIAG_IOC;
+                revision_set = QEBDRV_DIAG_REVISION;
+                data_mask_set = QEBDRV_DIAG_MASK;
             }
             else if (ServiceName.Equals("EBDRV", StringComparison.OrdinalIgnoreCase))
             {
-                data_mask_set = B10_IHV_COLLECT_MASK;
-                ioctl_value = B10_IOC_GET_IHV_DIAGNOSTIC_DATA;
+                DevPath = "\\\\?\\Global\\" + DeviceID.Replace("\\", "#");
                 DevPath += "#{ea22615e-c443-434f-9e45-c4e32d83e97d}";
+
+                ioctl_value = EBDRV_DIAG_IOC;
+                revision_set = EBDRV_DIAG_REVISION;
+                data_mask_set = EBDRV_DIAG_MASK;
+            }
+            else if (ServiceName.Equals("L2ND2", StringComparison.OrdinalIgnoreCase))
+            {
+                DevPath = "\\\\.\\" + DeviceID.Replace("\\", "#");
+
+                ioctl_value = NIC_DIAG_IOC;
+                revision_set = L2ND2_DIAG_REVISION;
+                data_mask_set = L2ND2_DIAG_MASK;
             }
             else
             {
@@ -1279,6 +1296,7 @@ public class MarvellGetDiagData
                 return 0;
             }
 
+            ErrString.Append("MarvellGetDiagDataIoctl: " + DevPath + "\n");
             shwnd = CreateFile(DevPath, FileAccess.Write | FileAccess.Read, FileShare.Read |
                 FileShare.Write, IntPtr.Zero, FileMode.Open, FileAttributes.Normal, IntPtr.Zero);
             if (shwnd.IsClosed | shwnd.IsInvalid)
@@ -1287,19 +1305,38 @@ public class MarvellGetDiagData
                 return 0;
             }
 
-            byte[] OutBuffer = new byte[bufSize];
-            Array.Clear(OutBuffer, 0, OutBuffer.Length);
-
-            DiagInput_t InBuffer = new DiagInput_t
+            DiagInput_t DiagInput = new DiagInput_t
             {
-                revision = IHV_DIAG_REVISION,
-                data_mask = data_mask_set
+                revision = revision_set,
+                data_mask = data_mask_set,
+                signature = SIGNATURE
             };
 
-            bResult = DeviceIoControl(shwnd, ioctl_value, ref InBuffer, Marshal.SizeOf(InBuffer),
-                OutBuffer, bufSize, ref bytesReturned, IntPtr.Zero);
+            int InBufLen = Marshal.SizeOf<DiagInput_t>();
+            IntPtr ptr = Marshal.AllocHGlobal(InBufLen);
+            Marshal.StructureToPtr(DiagInput, ptr, true);
+
+            byte[] InBuffer;
+            byte[] OutBuffer = new byte[BYTE_SIZE];
+            Array.Clear(OutBuffer, 0, OutBuffer.Length);
+
+            if (ioctl_value == NIC_DIAG_IOC)
+            {
+                Marshal.Copy(ptr, OutBuffer, 0, InBufLen);
+                InBuffer = BitConverter.GetBytes(L2ND2_DIAG_IOC);
+            }
+            else
+            {
+                InBuffer = new byte[InBufLen];
+                Marshal.Copy(ptr, InBuffer, 0, InBufLen);
+            }
+            Marshal.FreeHGlobal(ptr);
+
+            bResult = DeviceIoControl(shwnd, ioctl_value, InBuffer, InBuffer.Length,
+                OutBuffer, OutBuffer.Length, ref bytesReturned, IntPtr.Zero);
             if (bResult)
             {
+                FileName = String.Format("DiagData-{0}.bin", ServiceName);
                 FilePath += "\\" + FileName;
 
                 file = File.Create(FilePath);
@@ -1333,8 +1370,10 @@ public class MarvellGetDiagData
 "@
 
     try {
-        $NDIS_DeviceID = (Get-NetAdapter -Name $NicName).PnPDeviceID
-        $VBD_DeviceID = (Get-PnpDeviceProperty -InstanceId "$NDIS_DeviceID" -KeyName "DEVPKEY_Device_Parent").Data
+        $NDIS_PnPDeviceID = (Get-NetAdapter -Name $NicName).PnPDeviceID
+        $NDIS_DeviceID = (Get-NetAdapter -Name $NicName).DeviceID
+        $NDIS_Service = (Get-PnpDeviceProperty -InstanceId "$NDIS_PnPDeviceID" -KeyName "DEVPKEY_Device_Service").Data
+        $VBD_DeviceID = (Get-PnpDeviceProperty -InstanceId "$NDIS_PnPDeviceID" -KeyName "DEVPKEY_Device_Parent").Data
         $VBD_Service = (Get-PnpDeviceProperty -InstanceId "$VBD_DeviceID" -KeyName "DEVPKEY_Device_Service").Data
 
         $file = "$NicName-BusVerifierInfo.txt"
@@ -1344,17 +1383,23 @@ public class MarvellGetDiagData
 
         $file = "$NicName-NicVerifierInfo.txt"
         [String []] $cmds = "verifier /query",
-                            "Get-PnpDeviceProperty -InstanceId '$NDIS_DeviceID' | Select-Object KeyName, Data | Format-Table -Autosize"
+                            "Get-PnpDeviceProperty -InstanceId '$NDIS_PnPDeviceID' | Select-Object KeyName, Data | Format-Table -Autosize"
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
         TryCmd {Add-Type -TypeDefinition $MarvellGetDiagDataClass -ErrorAction Stop}
 
         $r = New-Object -TypeName MarvellGetDiagData
 
-        $rrrorString = New-Object -TypeName "System.Text.StringBuilder";
-        $Output = $r.MarvellGetDiagDataIoctl($VBD_DeviceID, $OutDir, $VBD_Service, $rrrorString)
+        $ErrorString = New-Object -TypeName "System.Text.StringBuilder";
+        $Output = $r.MarvellGetDiagDataIoctl($VBD_DeviceID, $OutDir, $VBD_Service, $ErrorString)
         if ($Output -le 0) {
-            ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $rrrorString.ToString()
+            ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $ErrorString.ToString()
+        }
+
+        $ErrorString = New-Object -TypeName "System.Text.StringBuilder";
+        $Output = $r.MarvellGetDiagDataIoctl($NDIS_DeviceID, $OutDir, $NDIS_Service, $ErrorString)
+        if ($Output -le 0) {
+            ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $ErrorString.ToString()
         }
     } catch {
         $msg = $($error[0] | Out-String)
