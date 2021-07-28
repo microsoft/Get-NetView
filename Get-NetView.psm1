@@ -2403,6 +2403,13 @@ function SystemLogs {
         $file = "WER.txt"
         [String []] $paths = "$env:ProgramData\Microsoft\Windows\WER"
         ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $dir
+    } else {
+        $dir = "$OutDir\winevt\Logs"
+
+        $file = "ATCEVT.txt"
+        [String []] $paths = "$env:SystemRoot\System32\winevt\logs\Microsoft-Windows-Networking-NetworkAtc%4Operational.evtx",
+                             "$env:SystemRoot\System32\winevt\logs\Microsoft-Windows-Networking-NetworkAtc%4Admin.evtx"
+        ExecCopyItemsAsync -OutDir $dir -File $file -Paths $paths -Destination $dir
     }
 } # SystemLogs()
 
