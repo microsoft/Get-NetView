@@ -1,18 +1,18 @@
 ﻿<?xml version="1.0" encoding="utf-8" standalone="no"?>
-<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="3" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2021-07-27" time="16:44:07">
+<test-results xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="nunit_schema_2.5.xsd" name="Pester" total="3" errors="0" failures="0" not-run="0" inconclusive="0" ignored="0" skipped="0" invalid="0" date="2021-07-29" time="08:09:45">
   <environment clr-version="4.0.30319.42000" user-domain="APPVYR-WIN" cwd="C:\projects\Get-NetView" platform="Microsoft Windows Server 2012 R2 Datacenter|C:\windows|\Device\Harddisk0\Partition5" machine-name="APPVYR-WIN" nunit-version="2.5.8.0" os-version="6.3.9600" user="appveyor" />
   <culture-info current-culture="en-US" current-uiculture="en-US" />
-  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="3.5063" asserts="0" description="Pester">
+  <test-suite type="TestFixture" name="Pester" executed="True" result="Success" success="True" time="3.4777" asserts="0" description="Pester">
     <results>
-      <test-suite type="TestFixture" name="C:\projects\Get-NetView\tests\unit\unit.tests.ps1" executed="True" result="Success" success="True" time="3.5063" asserts="0" description="C:\projects\Get-NetView\tests\unit\unit.tests.ps1">
+      <test-suite type="TestFixture" name="C:\projects\Get-NetView\tests\unit\unit.tests.ps1" executed="True" result="Success" success="True" time="3.4777" asserts="0" description="C:\projects\Get-NetView\tests\unit\unit.tests.ps1">
         <results>
-          <test-suite type="TestFixture" name="Get-NetView-Manifest" executed="True" result="Success" success="True" time="1.5172" asserts="0" description="Get-NetView-Manifest">
+          <test-suite type="TestFixture" name="Get-NetView-Manifest" executed="True" result="Success" success="True" time="1.5129" asserts="0" description="Get-NetView-Manifest">
             <results>
-              <test-suite type="TestFixture" name="Get-NetView-Manifest.Validation" executed="True" result="Success" success="True" time="1.325" asserts="0" description="Get-NetView-Manifest.Validation">
+              <test-suite type="TestFixture" name="Get-NetView-Manifest.Validation" executed="True" result="Success" success="True" time="1.353" asserts="0" description="Get-NetView-Manifest.Validation">
                 <results>
-                  <test-case description="[Import-PowerShellDataFile] - Get-NetView.psd1 is a valid PowerShell Data File" name="Get-NetView-Manifest.Validation.[Import-PowerShellDataFile] - Get-NetView.psd1 is a valid PowerShell Data File" time="0.8679" asserts="0" success="True" result="Success" executed="True" />
-                  <test-case description="[Test-ModuleManifest] - Get-NetView.psd1 should pass the basic test" name="Get-NetView-Manifest.Validation.[Test-ModuleManifest] - Get-NetView.psd1 should pass the basic test" time="0.011" asserts="0" success="True" result="Success" executed="True" />
-                  <test-case description="Should have the Get-NetView function available" name="Get-NetView-Manifest.Validation.Should have the Get-NetView function available" time="0.0404" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="[Import-PowerShellDataFile] - Get-NetView.psd1 is a valid PowerShell Data File" name="Get-NetView-Manifest.Validation.[Import-PowerShellDataFile] - Get-NetView.psd1 is a valid PowerShell Data File" time="0.8994" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="[Test-ModuleManifest] - Get-NetView.psd1 should pass the basic test" name="Get-NetView-Manifest.Validation.[Test-ModuleManifest] - Get-NetView.psd1 should pass the basic test" time="0.0175" asserts="0" success="True" result="Success" executed="True" />
+                  <test-case description="Should have the Get-NetView function available" name="Get-NetView-Manifest.Validation.Should have the Get-NetView function available" time="0.0388" asserts="0" success="True" result="Success" executed="True" />
                 </results>
               </test-suite>
             </results>
