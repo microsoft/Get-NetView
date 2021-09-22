@@ -1202,7 +1202,7 @@ public class MarvellGetDiagData
     private const uint EBDRV_DIAG_IOC = 0x80002130;
     private const uint NIC_DIAG_IOC = 0x00170002;
     private const uint L2ND2_DIAG_IOC = 0xFF010148;
-    private const uint QEBDRV_DIAG_MASK = 0xFFFDFFFF;
+    private const uint QEBDRV_DIAG_MASK = 0xFFFDFF7F;
     private const uint EBDRV_DIAG_MASK = 0xFFFFFFFF;
     private const uint L2ND2_DIAG_MASK = 0xFFFFFFFF;
     private const uint SIGNATURE = 0x4488AACC;
