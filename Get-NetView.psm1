@@ -1410,10 +1410,11 @@ public class MarvellGetDiagData
 
 } # Marvell Detail
 
-# ========================================================================
-# function stub for extension by IHV
-# Copy and rename it, add your commands, and call it in NicVendor() below
-# ========================================================================
+<#
+.SYNOPSIS
+    Function stub for extension by IHVs Copy and rename it,
+    add your commands, and call it in NicVendor() below
+#>
 function MyVendorDetail {
     [CmdletBinding()]
     Param(
@@ -1426,7 +1427,7 @@ function MyVendorDetail {
     # Try to keep the layout of this block of code
     # Feel free to copy it or wrap it in other control structures
     # See other functions in this file for examples
-    $file = "$NicName.MyVendor.txt"
+    $file = "CommandOutput.txt"
     [String []] $cmds = "Command 1",
                         "Command 2",
                         "Command 3",
@@ -1437,14 +1438,13 @@ function MyVendorDetail {
 function NicVendor {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $NicName, # Get-NetAdapter output
+        [parameter(Mandatory=$true)] [String] $NicName,
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
     $dir = $OutDir
 
-    # Call appropriate vendor specific function
-    $pciId = (Get-NetAdapterAdvancedProperty -Name $NicName -AllProperties -RegistryKeyword "ComponentID").RegistryValue
+    $pciId = TryCmd {(Get-NetAdapterAdvancedProperty -Name $NicName -AllProperties -RegistryKeyword "ComponentID").RegistryValue}
     switch -Wildcard($pciId) {
         "CHT*BUS\chnet*" {
             ChelsioDetail  $NicName $dir
@@ -1460,15 +1460,10 @@ function NicVendor {
         }
         "*EBDRV\L2ND*" {
             MarvellDetail  $NicName $dir
+            break
         }
-        # Not implemented.  See MyVendorDetail() for examples.
-        #
-        #"PCI\VEN_8086*" {
-        #    IntelDetail $Nic $dir
-        #    break
-        #}
+        # To extend refer to MyVendorDetail() above.
         default {
-            # Not implemented, not native, or N/A
         }
     }
 } # NicVendor()
@@ -1826,10 +1821,6 @@ function VMSwitchDetail {
     $file = "NmScrub.txt"
     [String []] $cmds = "nmscrub -a -n -t "
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    # FIXME!!!
-    # See this command to get VFs on vSwitch
-    # Get-NetAdapterSriovVf -SwitchId 2
 
     # Acquire per vSwitch instance info/mappings
     [Int] $index = 1
