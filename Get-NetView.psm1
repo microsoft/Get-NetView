@@ -2607,7 +2607,6 @@ function Initialize {
     EnvDestroy $OutDir
     EnvCreate $OutDir
 
-    Clear-Host
     Start-Transcript -Path "$OutDir\Get-NetView.log"
 
     if ($ExecutionRate -lt 1) {
