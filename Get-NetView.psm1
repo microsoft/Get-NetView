@@ -1421,6 +1421,44 @@ public class MarvellGetDiagData
     }
 } # Marvell Detail
 
+function IntelDetail {
+    [CmdletBinding()]
+    Param(
+        [parameter(Mandatory=$true)] [String] $NicName,
+        [parameter(Mandatory=$true)] [String] $OutDir
+    )
+
+    IntelReadEetrackId -NicName $NicName -OutDir $OutDir
+} # Intel Detail
+
+function IntelReadEetrackId {
+    [CmdLetBinding()]
+    Param(
+        [parameter(Mandatory=$true)] [String] $NicName,
+        [parameter(Mandatory=$true)] [String] $OutDir
+    )
+
+    $params = @{'Namespace'='root/wmi';
+                'ClassName'='IntlLan_EetrackId';
+                'Property'='Id';
+                'ErrorAction'='Stop'}
+
+    try {
+        $eetrackId = Get-CimInstance @params
+    }
+    catch {
+        Write-OutPut "No Intel(R) LAN interfaces support IntlLan_EetrackId interface."
+        Exit
+    }
+
+    $file = "IntelEetrack.txt"
+
+    # Locate the interface we are looking for based on the string name, as we will need
+    # the InterfaceDescription field.
+    $IntDesc = Get-NetAdapter | Where-Object { $_.Name -eq $NicName }
+    $eetrackId | ForEach-Object { if ($_.InstanceName -eq $IntDesc.InterfaceDescription) { "- EETRACK ID:", '{0:X}' -f $_.Id | Out-File -FilePath $OutDir\$file } }
+} # IntelReadEetrackId
+
 <#
 .SYNOPSIS
     Function stub for extension by IHVs Copy and rename it,
@@ -1471,6 +1509,10 @@ function NicVendor {
         }
         "*EBDRV\L2ND*" {
             MarvellDetail  $NicName $dir
+            break
+        }
+        "PCI\VEN_8086*" {
+            IntelDetail  $NicName $dir
             break
         }
         # To extend refer to MyVendorDetail() above.
