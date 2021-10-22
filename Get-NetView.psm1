@@ -1419,26 +1419,16 @@ function IntelDetail {
 
     $dir = Join-Path -Path $OutDir -ChildPath "IntelDetail"
 
-    # Try to keep the layout of this block of code
-    # Feel free to copy it or wrap it in other control structures
-    # See other functions in this file for examples
-    #$file = "CommandOutput.txt"
-    #[String []] $cmds = "Command 1",
-    #                    "Command 2",
-    #                    "Command 3",
-    #                    "etc."
-    # ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-    $result = IntelReadEtrackId
-
-    New-Item $dir + IntelEetrack.txt -ItemType file
-    Add-Content -Path $dir\InntelEetrack.txt $result 
+   [String []] $cmds = "IntelEtrackId"
+    $file = "IntelEetrack.txt"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # Intel Detail
 
 function IntelReadEtrackId {
-    # Start with Support for E815 and E823 devices
+    [CmdLetBinding()]
+
     $eetrackId = Get-CimInstance -Namespace "root\wmi" -ClassName IntlLanEetrackId -Property Id
-    $result = $eetrackId | ForEach-Object {$_.InstanceName, "- EETRACK ID:", '{0:X}' -f $_.Id}
-    return $result
+    $eetrackId | ForEach-Object {$_.InstanceName, "- EETRACK ID:", '{0:X}' -f $_.Id}
 } # IntelReadEtrackId
 
 <#
