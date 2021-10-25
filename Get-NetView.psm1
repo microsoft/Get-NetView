@@ -634,6 +634,8 @@ function NetAdapterWorkerPrepare {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory=$false)] [String] $NicName,
+        [ValidateSet("pNIC", "hNIC", "NIC")]
+        [parameter(Mandatory=$true)] [String] $Type,
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
@@ -642,10 +644,9 @@ function NetAdapterWorkerPrepare {
 
     # Create dir for each NIC
     $nic   = Get-NetAdapter -Name $name -IncludeHidden
-    $type  = if (Get-NetAdapterHardwareInfo -Name $name -IncludeHidden -ErrorAction "SilentlyContinue") {"pNIC"} else {"NIC"}
     $idx   = $nic.InterfaceIndex
     $desc  = $nic.InterfaceDescription
-    $title = "$type.$idx.$name"
+    $title = "$Type.$idx.$name"
 
     $Global:NetAdapterTracker += $nic.ifIndex
 
@@ -656,14 +657,18 @@ function NetAdapterWorkerPrepare {
     if ($nic.Hidden) {
         $dir = Join-Path $dir "NIC.Hidden"
     }
+
     $dir = Join-Path $dir $(ConvertTo-Filename $title.Trim())
     New-Item -ItemType directory -Path $dir | Out-Null
 
     Write-Progress $Global:QueueActivity -Status "Processing $title"
     NetIpNic         -NicName $name -OutDir $dir
     NetAdapterWorker -NicName $name -OutDir $dir
-    if (-not $nic.Hidden) {
-        NicVendor    -NicName $name -OutDir $dir
+
+    if ($Type -eq "pNIC") {
+        NicVendor   -NicName $name -OutDir $dir
+    } elseif ($Type -eq "hNIC") {
+        HostVNicWorker -DeviceID $nic.DeviceID -OutDir $dir
     }
 } # NetAdapterWorkerPrepare()
 
@@ -698,12 +703,12 @@ function LbfoWorker {
 
     # Report the TNIC(S)
     foreach ($tnic in TryCmd {Get-NetLbfoTeamNic -Team $name}) {
-        NetAdapterWorkerPrepare -NicName $tnic.Name -OutDir $OutDir
+        NetAdapterWorkerPrepare -NicName $tnic.Name -Type "NIC" -OutDir $OutDir
     }
 
     # Report the NIC Members
     foreach ($mnic in TryCmd {Get-NetLbfoTeamMember -Team $name}) {
-        NetAdapterWorkerPrepare -NicName $mnic.Name -OutDir $OutDir
+        NetAdapterWorkerPrepare -NicName $mnic.Name -Type "NIC" -OutDir $OutDir
     }
 } # LbfoWorker()
 
@@ -750,7 +755,7 @@ function ProtocolNicDetail {
         if ($nic.DriverFileName -like "NdisImPlatform.sys") {
             LbfoWorker -LbfoName $nic.Name -OutDir $dir
         } else {
-            NetAdapterWorkerPrepare -NicName $nic.Name -OutDir $dir
+            NetAdapterWorkerPrepare -NicName $nic.Name -Type "pNIC" -OutDir $dir
         }
     }
 } # ProtocolNicDetail()
@@ -766,7 +771,8 @@ function NativeNicDetail {
     # Query all remaining NetAdapters
     $nics = Get-NetAdapter -IncludeHidden | where {$_.ifIndex -notin $Global:NetAdapterTracker}
     foreach ($nic in $nics) {
-        NetAdapterWorkerPrepare -NicName $nic.Name -OutDir $dir
+        $type = if (Get-NetAdapterHardwareInfo -Name $nic.Name -IncludeHidden -ErrorAction "SilentlyContinue") {"pNIC"} else {"NIC"}
+        NetAdapterWorkerPrepare -NicName $nic.Name -Type $type -OutDir $dir
     }
 } # NativeNicDetail()
 
@@ -1471,51 +1477,45 @@ function NicVendor {
 function HostVNicWorker {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$false)] [String] $HostVNicName, # Note: "" is a valid Host vNIC name.
+        [parameter(Mandatory=$false)] [String] $DeviceId,
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
-    $name = $HostVNicName
     $dir  = $OutDir
 
     $file = "Get-VMNetworkAdapter.txt"
-    [String []] $cmds = "Get-VMNetworkAdapter -ManagementOS -VMNetworkAdapterName ""$name"" | Out-String -Width $columns",
-                        "Get-VMNetworkAdapter -ManagementOS -VMNetworkAdapterName ""$name"" | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapter -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+                        "Get-VMNetworkAdapter -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterAcl.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterAcl -ManagementOS -VMNetworkAdapterName ""$name"" | Out-String -Width $columns",
-                        "Get-VMNetworkAdapterAcl -ManagementOS -VMNetworkAdapterName ""$name"" | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+                        "Get-VMNetworkAdapterAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterExtendedAcl.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterExtendedAcl -ManagementOS -VMNetworkAdapterName ""$name"" | Out-String -Width $columns",
-                        "Get-VMNetworkAdapterExtendedAcl -ManagementOS -VMNetworkAdapterName ""$name"" | Format-List  -Property *"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "Get-VMNetworkAdapterFailoverConfiguration.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterFailoverConfiguration -ManagementOS -VMNetworkAdapterName ""$name"" | Out-String -Width $columns",
-                        "Get-VMNetworkAdapterFailoverConfiguration -ManagementOS -VMNetworkAdapterName ""$name"" | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterExtendedAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}| Out-String -Width $columns",
+                        "Get-VMNetworkAdapterExtendedAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterIsolation.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterIsolation -ManagementOS -VMNetworkAdapterName ""$name"" | Out-String -Width $columns",
-                        "Get-VMNetworkAdapterIsolation -ManagementOS -VMNetworkAdapterName ""$name"" | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterIsolation -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+                        "Get-VMNetworkAdapterIsolation -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterRoutingDomainMapping.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS -VMNetworkAdapterName ""$name"" | Out-String -Width $columns",
-                        "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS -VMNetworkAdapterName ""$name"" | Format-List -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+                        "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterTeamMapping.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -ManagementOS -VMNetworkAdapterName ""$name"" | Out-String -Width $columns",
-                        "Get-VMNetworkAdapterTeamMapping -ManagementOS -VMNetworkAdapterName ""$name"" | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+                        "Get-VMNetworkAdapterTeamMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterVlan.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName ""$name"" | Out-String -Width $columns",
-                        "Get-VMNetworkAdapterVlan -ManagementOS -VMNetworkAdapterName ""$name"" | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterVlan -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+                        "Get-VMNetworkAdapterVlan -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # HostVNicWorker()
 
@@ -1531,19 +1531,9 @@ function HostVNicDetail {
 
     foreach ($hnic in TryCmd {Get-VMNetworkAdapter -ManagementOS} | where {$_.SwitchId -eq $VMSwitchId}) {
         # Use device ID to find corresponding NetAdapter instance
-        $vnic = $allNetAdapters | where {$_.DeviceID -eq $hnic.DeviceID}
+        $nic = $allNetAdapters | where {$_.DeviceID -eq $hnic.DeviceID}
 
-        # Create dir for the hNIC
-        $ifIndex = $vnic.InterfaceIndex
-        $title   = "hNic.$ifIndex.$($hnic.Name)"
-
-        $dir     = Join-Path $OutDir $(ConvertTo-Filename $title)
-        New-Item -ItemType directory -Path $dir | Out-Null
-
-        Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
-        HostVNicWorker   -HostVNicName $hnic.Name -OutDir $dir
-        NetAdapterWorker -NicName      $vnic.Name -OutDir $dir
-        NetIpNic         -NicName      $vnic.Name -OutDir $dir
+        NetAdapterWorkerPrepare -NicName $nic.Name -Type "hNIC" -OutDir $OutDir
     }
 } # HostVNicDetail()
 
@@ -1564,7 +1554,7 @@ function VMNetworkAdapterDetail {
     $null = New-Item -ItemType directory -Path $dir
 
     # We must use Id to identity VMNics, because different VMNics
-    # can have the same MAC (if VM is off), Name, VMName, and SwitchName.
+    # can have the same MAC (none if VM is off), Name, VMName, and SwitchName.
     [String] $vmNicObject = "`$(Get-VMNetworkAdapter -VMName ""$VMName"" -Name ""$VMNicName"" | where {`$_.Id -like ""*$id""})"
 
     Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
