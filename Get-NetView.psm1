@@ -31,7 +31,7 @@ $ExecFunctions = {
 
         $file = "$Function.Errors.txt"
         $out  = Join-Path $OutDir $file
-        Write-Output $Message | Out-File -Encoding ascii -Append $out
+        Write-Output $Message | Out-File -Encoding ascii -Width $columns -Append $out
     } # ExecControlError()
 
     enum CommandStatus {
@@ -126,7 +126,7 @@ $ExecFunctions = {
         )
 
         $out = (Join-Path -Path $OutDir -ChildPath $File)
-        $($Commands | foreach {ExecCommand -Command $_}) | Out-File -Encoding ascii -Append $out
+        $($Commands | foreach {ExecCommand -Command $_}) | Out-File -Encoding ascii -Width $columns -Append $out
 
         # With high-concurreny, WMI-based cmdlets sometimes output in an
         # incorrect format or with missing fields. Somehow, this helps
@@ -353,27 +353,27 @@ function NetIpNic {
     New-Item -ItemType directory -Path $dir | Out-Null
 
     $file = "Get-NetIpAddress.txt"
-    [String []] $cmds = "Get-NetIpAddress -InterfaceAlias ""$name"" | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetIpAddress -InterfaceAlias ""$name"" | Format-Table -Property * -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetIpAddress -InterfaceAlias ""$name"" | Format-Table -AutoSize",
+                        "Get-NetIpAddress -InterfaceAlias ""$name"" | Format-Table -Property * -AutoSize",
                         "Get-NetIpAddress -InterfaceAlias ""$name"" | Format-List",
                         "Get-NetIpAddress -InterfaceAlias ""$name"" | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetIPInterface.txt"
-    [String []] $cmds = "Get-NetIPInterface -InterfaceAlias ""$name"" | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetIPInterface -InterfaceAlias ""$name""",
                         "Get-NetIPInterface -InterfaceAlias ""$name"" | Format-Table -AutoSize",
-                        "Get-NetIPInterface -InterfaceAlias ""$name"" | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetIPInterface -InterfaceAlias ""$name"" | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetNeighbor.txt"
-    [String []] $cmds = "Get-NetNeighbor -InterfaceAlias ""$name"" | Out-String -Width $columns",
-                        "Get-NetNeighbor -InterfaceAlias ""$name"" | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetNeighbor -InterfaceAlias ""$name"" | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-NetNeighbor -InterfaceAlias ""$name""",
+                        "Get-NetNeighbor -InterfaceAlias ""$name"" | Format-Table -AutoSize",
+                        "Get-NetNeighbor -InterfaceAlias ""$name"" | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetRoute.txt"
-    [String []] $cmds = "Get-NetRoute -InterfaceAlias ""$name"" | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetRoute -InterfaceAlias ""$name"" | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-NetRoute -InterfaceAlias ""$name"" | Format-Table -AutoSize",
+                        "Get-NetRoute -InterfaceAlias ""$name"" | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # NetIpNic()
 
@@ -387,77 +387,77 @@ function NetIp {
     New-Item -ItemType directory -Path $dir | Out-Null
 
     $file = "Get-NetIpAddress.txt"
-    [String []] $cmds = "Get-NetIpAddress | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetIpAddress | Format-Table -Property * -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetIpAddress | Format-Table -AutoSize",
+                        "Get-NetIpAddress | Format-Table -Property * -AutoSize",
                         "Get-NetIpAddress | Format-List",
                         "Get-NetIpAddress | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetIPInterface.txt"
-    [String []] $cmds = "Get-NetIPInterface | Out-String -Width $columns",
-                        "Get-NetIPInterface | Format-Table -AutoSize  | Out-String -Width $columns",
-                        "Get-NetIPInterface | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-NetIPInterface",
+                        "Get-NetIPInterface | Format-Table -AutoSize",
+                        "Get-NetIPInterface | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetNeighbor.txt"
-    [String []] $cmds = "Get-NetNeighbor | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetNeighbor | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-NetNeighbor | Format-Table -AutoSize",
+                        "Get-NetNeighbor | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetIPv4Protocol.txt"
-    [String []] $cmds = "Get-NetIPv4Protocol | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetIPv4Protocol",
                         "Get-NetIPv4Protocol | Format-List  -Property *",
                         "Get-NetIPv4Protocol | Format-Table -Property * -AutoSize",
-                        "Get-NetIPv4Protocol | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetIPv4Protocol | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetIPv6Protocol.txt"
-    [String []] $cmds = "Get-NetIPv6Protocol | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetIPv6Protocol",
                         "Get-NetIPv6Protocol | Format-List  -Property *",
                         "Get-NetIPv6Protocol | Format-Table -Property * -AutoSize",
-                        "Get-NetIPv6Protocol | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetIPv6Protocol | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetOffloadGlobalSetting.txt"
-    [String []] $cmds = "Get-NetOffloadGlobalSetting | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetOffloadGlobalSetting",
                         "Get-NetOffloadGlobalSetting | Format-List  -Property *",
                         "Get-NetOffloadGlobalSetting | Format-Table -AutoSize",
-                        "Get-NetOffloadGlobalSetting | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetOffloadGlobalSetting | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetPrefixPolicy.txt"
     [String []] $cmds = "Get-NetPrefixPolicy | Format-Table -AutoSize",
-                        "Get-NetPrefixPolicy | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetPrefixPolicy | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetRoute.txt"
     [String []] $cmds = "Get-NetRoute | Format-Table -AutoSize",
-                        "Get-NetRoute | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetRoute | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetTCPConnection.txt"
     [String []] $cmds = "Get-NetTCPConnection | Format-Table -AutoSize",
-                        "Get-NetTCPConnection | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetTCPConnection | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetTcpSetting.txt"
     [String []] $cmds = "Get-NetTcpSetting | Format-Table -AutoSize",
-                        "Get-NetTcpSetting | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetTcpSetting | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetTransportFilter.txt"
     [String []] $cmds = "Get-NetTransportFilter | Format-Table -AutoSize",
-                        "Get-NetTransportFilter | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetTransportFilter | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetUDPEndpoint.txt"
     [String []] $cmds = "Get-NetUDPEndpoint | Format-Table -AutoSize",
-                        "Get-NetUDPEndpoint | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetUDPEndpoint | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetUDPSetting.txt"
     [String []] $cmds = "Get-NetUDPSetting | Format-Table -AutoSize",
-                        "Get-NetUDPSetting | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+                        "Get-NetUDPSetting | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # NetIp()
 
@@ -471,36 +471,36 @@ function NetNatDetail {
     New-Item -ItemType directory -Path $dir | Out-Null
 
     $file = "Get-NetNat.txt"
-    [String []] $cmds = "Get-NetNat | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetNat | Format-Table -Property * -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetNat | Format-Table -AutoSize",
+                        "Get-NetNat | Format-Table -Property * -AutoSize",
                         "Get-NetNat | Format-List",
                         "Get-NetNat | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetNatExternalAddress.txt"
-    [String []] $cmds = "Get-NetNatExternalAddress | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetNatExternalAddress | Format-Table -Property * -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetNatExternalAddress | Format-Table -AutoSize",
+                        "Get-NetNatExternalAddress | Format-Table -Property * -AutoSize",
                         "Get-NetNatExternalAddress | Format-List",
                         "Get-NetNatExternalAddress | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetNatGlobal.txt"
-    [String []] $cmds = "Get-NetNatGlobal | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetNatGlobal | Format-Table -Property * -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetNatGlobal | Format-Table -AutoSize",
+                        "Get-NetNatGlobal | Format-Table -Property * -AutoSize",
                         "Get-NetNatGlobal | Format-List",
                         "Get-NetNatGlobal | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetNatSession.txt"
-    [String []] $cmds = "Get-NetNatSession | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetNatSession | Format-Table -Property * -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetNatSession | Format-Table -AutoSize",
+                        "Get-NetNatSession | Format-Table -Property * -AutoSize",
                         "Get-NetNatSession | Format-List",
                         "Get-NetNatSession | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetNatStaticMapping.txt"
-    [String []] $cmds = "Get-NetNatStaticMapping | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-NetNatStaticMapping | Format-Table -Property * -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetNatStaticMapping | Format-Table -AutoSize",
+                        "Get-NetNatStaticMapping | Format-Table -Property * -AutoSize",
                         "Get-NetNatStaticMapping | Format-List",
                         "Get-NetNatStaticMapping | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
@@ -522,110 +522,110 @@ function NetAdapterWorker {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapter.txt"
-    [String []] $cmds = "Get-NetAdapter -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapter -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapter -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterAdvancedProperty.txt"
-    [String []] $cmds = "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Sort-Object RegistryKeyword | Format-Table -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Sort-Object RegistryKeyword | Format-Table -AutoSize",
                         "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Format-List -Property *",
-                        "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Format-Table -Property * | Out-String -Width $columns"
+                        "Get-NetAdapterAdvancedProperty -Name ""$name"" -AllProperties -IncludeHidden | Format-Table -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterBinding.txt"
-    [String []] $cmds = "Get-NetAdapterBinding -Name ""$name"" -AllBindings -IncludeHidden | Sort-Object ComponentID | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterBinding -Name ""$name"" -AllBindings -IncludeHidden | Sort-Object ComponentID",
                         "Get-NetAdapterBinding -Name ""$name"" -AllBindings -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterChecksumOffload.txt"
-    [String []] $cmds = "Get-NetAdapterChecksumOffload -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterChecksumOffload -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterChecksumOffload -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterLso.txt"
-    [String []] $cmds = "Get-NetAdapterLso -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterLso -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterLso -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterRss.txt"
-    [String []] $cmds = "Get-NetAdapterRss -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterRss -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterRss -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterStatistics.txt"
-    [String []] $cmds = "Get-NetAdapterStatistics -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterStatistics -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterStatistics -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterEncapsulatedPacketTaskOffload.txt"
-    [String []] $cmds = "Get-NetAdapterEncapsulatedPacketTaskOffload -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterEncapsulatedPacketTaskOffload -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterEncapsulatedPacketTaskOffload -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterHardwareInfo.txt"
-    [String []] $cmds = "Get-NetAdapterHardwareInfo -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterHardwareInfo -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterHardwareInfo -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterIPsecOffload.txt"
-    [String []] $cmds = "Get-NetAdapterIPsecOffload -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterIPsecOffload -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterIPsecOffload -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterPowerManagement.txt"
-    [String []] $cmds = "Get-NetAdapterPowerManagement -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterPowerManagement -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterPowerManagement -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterQos.txt"
-    [String []] $cmds = "Get-NetAdapterQos -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterQos -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterQos -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterRdma.txt"
-    [String []] $cmds = "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Format-List -Property *",
                         "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Select-Object -ExpandProperty RdmaAdapterInfo",
                         "Get-NetAdapterRdma -Name ""$name"" -IncludeHidden | Select-Object -ExpandProperty RdmaMissingCounterInfo"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterPacketDirect.txt"
-    [String []] $cmds = "Get-NetAdapterPacketDirect -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterPacketDirect -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterPacketDirect -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterRsc.txt"
-    [String []] $cmds = "Get-NetAdapterRsc -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterRsc -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterRsc -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterSriov.txt"
-    [String []] $cmds = "Get-NetAdapterSriov -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterSriov -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterSriov -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterSriovVf.txt"
-    [String []] $cmds = "Get-NetAdapterSriovVf -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterSriovVf -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterSriovVf -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterUso.txt"
-    [String []] $cmds = "Get-NetAdapterUso -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterUso -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterUso -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterVmq.txt"
-    [String []] $cmds = "Get-NetAdapterVmq -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterVmq -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterVmq -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterVmqQueue.txt"
-    [String []] $cmds = "Get-NetAdapterVmqQueue -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterVmqQueue -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterVmqQueue -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterVPort.txt"
-    [String []] $cmds = "Get-NetAdapterVPort -Name ""$name"" -IncludeHidden | Out-String -Width $columns",
+    [String []] $cmds = "Get-NetAdapterVPort -Name ""$name"" -IncludeHidden",
                         "Get-NetAdapterVPort -Name ""$name"" -IncludeHidden | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # NetAdapterWorker()
@@ -1509,37 +1509,37 @@ function HostVNicWorker {
     $dir  = $OutDir
 
     $file = "Get-VMNetworkAdapter.txt"
-    [String []] $cmds = "Get-VMNetworkAdapter -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapter -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
                         "Get-VMNetworkAdapter -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterAcl.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
                         "Get-VMNetworkAdapterAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterExtendedAcl.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterExtendedAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}| Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterExtendedAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
                         "Get-VMNetworkAdapterExtendedAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterIsolation.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterIsolation -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterIsolation -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
                         "Get-VMNetworkAdapterIsolation -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterRoutingDomainMapping.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
                         "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterTeamMapping.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
                         "Get-VMNetworkAdapterTeamMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterVlan.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterVlan -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterVlan -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
                         "Get-VMNetworkAdapterVlan -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # HostVNicWorker()
@@ -1584,42 +1584,42 @@ function VMNetworkAdapterDetail {
 
     Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
     $file = "Get-VMNetworkAdapter.txt"
-    [String []] $cmds = "$vmNicObject | Out-String -Width $columns",
+    [String []] $cmds = "$vmNicObject",
                         "$vmNicObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterAcl.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterAcl -VMNetworkAdapter $vmNicObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterAcl -VMNetworkAdapter $vmNicObject",
                         "Get-VMNetworkAdapterAcl -VMNetworkAdapter $vmNicObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterExtendedAcl.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterExtendedAcl -VMNetworkAdapter $vmNicObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterExtendedAcl -VMNetworkAdapter $vmNicObject",
                         "Get-VMNetworkAdapterExtendedAcl -VMNetworkAdapter $vmNicObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterFailoverConfiguration.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterFailoverConfiguration -VMNetworkAdapter $vmNicObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterFailoverConfiguration -VMNetworkAdapter $vmNicObject",
                         "Get-VMNetworkAdapterFailoverConfiguration -VMNetworkAdapter $vmNicObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterIsolation.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterIsolation -VMNetworkAdapter $vmNicObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterIsolation -VMNetworkAdapter $vmNicObject",
                         "Get-VMNetworkAdapterIsolation -VMNetworkAdapter $vmNicObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterRoutingDomainMapping.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterRoutingDomainMapping -VMNetworkAdapter $vmNicObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterRoutingDomainMapping -VMNetworkAdapter $vmNicObject",
                         "Get-VMNetworkAdapterRoutingDomainMapping -VMNetworkAdapter $vmNicObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterTeamMapping.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -VMNetworkAdapter $vmNicObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -VMNetworkAdapter $vmNicObject",
                         "Get-VMNetworkAdapterTeamMapping -VMNetworkAdapter $vmNicObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterVlan.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterVlan -VMNetworkAdapter $vmNicObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMNetworkAdapterVlan -VMNetworkAdapter $vmNicObject",
                         "Get-VMNetworkAdapterVlan -VMNetworkAdapter $vmNicObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
@@ -1646,47 +1646,47 @@ function VMWorker {
     [String] $vmObject = "`$(Get-VM -Id $id)"
 
     $file = "Get-VM.txt"
-    [String []] $cmds = "$vmObject | Out-String -Width $columns",
+    [String []] $cmds = "$vmObject",
                         "$vmObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMBios.txt"
-    [String []] $cmds = "Get-VMBios -VM $vmObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMBios -VM $vmObject",
                         "Get-VMBios -VM $vmObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMFirmware.txt"
-    [String []] $cmds = "Get-VMFirmware -VM $vmObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMFirmware -VM $vmObject",
                         "Get-VMFirmware -VM $vmObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMProcessor.txt"
-    [String []] $cmds = "Get-VMProcessor -VM $vmObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMProcessor -VM $vmObject",
                         "Get-VMProcessor -VM $vmObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMMemory.txt"
-    [String []] $cmds = "Get-VMMemory -VM $vmObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMMemory -VM $vmObject",
                         "Get-VMMemory -VM $vmObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMVideo.txt"
-    [String []] $cmds = "Get-VMVideo -VM $vmObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMVideo -VM $vmObject",
                         "Get-VMVideo -VM $vmObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMHardDiskDrive.txt"
-    [String []] $cmds = "Get-VMHardDiskDrive -VM $vmObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMHardDiskDrive -VM $vmObject",
                         "Get-VMHardDiskDrive -VM $vmObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMComPort.txt"
-    [String []] $cmds = "Get-VMComPort -VM $vmObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMComPort -VM $vmObject",
                         "Get-VMComPort -VM $vmObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMSecurity.txt"
-    [String []] $cmds = "Get-VMSecurity -VM $vmObject | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMSecurity -VM $vmObject",
                         "Get-VMSecurity -VM $vmObject | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # VMWorker()
@@ -1873,33 +1873,33 @@ function NetworkSummary {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMSwitch.txt"
-    [String []] $cmds = "Get-VMSwitch | Sort-Object Name | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-VMSwitch | Sort-Object Name | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-VMSwitch | Sort-Object Name | Format-Table -AutoSize",
+                        "Get-VMSwitch | Sort-Object Name | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapter.txt"
-    [String []] $cmds = "Get-VmNetworkAdapter -All | Sort-Object IsManagementOS | Sort-Object SwitchName | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-VmNetworkAdapter -All | Sort-Object IsManagementOS | Sort-Object SwitchName | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-VmNetworkAdapter -All | Sort-Object IsManagementOS | Sort-Object SwitchName | Format-Table -AutoSize",
+                        "Get-VmNetworkAdapter -All | Sort-Object IsManagementOS | Sort-Object SwitchName | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapter.txt"
-    [String []] $cmds = "Get-NetAdapter -IncludeHidden | Sort-Object InterfaceDescription | Format-Table -AutoSize | Out-String -Width $columns ",
-                        "Get-NetAdapter -IncludeHidden | Sort-Object InterfaceDescription | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-NetAdapter -IncludeHidden | Sort-Object InterfaceDescription | Format-Table -AutoSize",
+                        "Get-NetAdapter -IncludeHidden | Sort-Object InterfaceDescription | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetAdapterStatistics.txt"
-    [String []] $cmds = "Get-NetAdapterStatistics -IncludeHidden | Sort-Object InterfaceDescription | Format-Table -Autosize  | Out-String -Width $columns",
-                        "Get-NetAdapterStatistics -IncludeHidden | Sort-Object InterfaceDescription | Format-Table -Property * -Autosize | Out-String -Width $columns"
+    [String []] $cmds = "Get-NetAdapterStatistics -IncludeHidden | Sort-Object InterfaceDescription | Format-Table -Autosize",
+                        "Get-NetAdapterStatistics -IncludeHidden | Sort-Object InterfaceDescription | Format-Table -Property * -Autosize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetLbfoTeam.txt"
-    [String []] $cmds = "Get-NetLbfoTeam | Sort-Object InterfaceDescription | Format-Table -Autosize  | Out-String -Width $columns",
-                        "Get-NetLbfoTeam | Sort-Object InterfaceDescription | Format-Table -Property * -AutoSize  | Out-String -Width $columns"
+    [String []] $cmds = "Get-NetLbfoTeam | Sort-Object InterfaceDescription | Format-Table -Autosize",
+                        "Get-NetLbfoTeam | Sort-Object InterfaceDescription | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetIpAddress.txt"
-    [String []] $cmds = "Get-NetIpAddress | Format-Table -Autosize | Format-Table -Autosize  | Out-String -Width $columns",
-                        "Get-NetIpAddress | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-NetIpAddress | Format-Table -Autosize",
+                        "Get-NetIpAddress | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "_ipconfig.txt"
@@ -1955,12 +1955,12 @@ function SMBDetail {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-SmbClientNetworkInterface.txt"
-    [String []] $cmds = "Get-SmbClientNetworkInterface | Sort-Object FriendlyName | Format-Table -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-SmbClientNetworkInterface | Sort-Object FriendlyName | Format-Table -AutoSize",
                         "Get-SmbClientNetworkInterface | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-SmbServerNetworkInterface.txt"
-    [String []] $cmds = "Get-SmbServerNetworkInterface | Sort-Object FriendlyName | Format-Table -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-SmbServerNetworkInterface | Sort-Object FriendlyName | Format-Table -AutoSize",
                         "Get-SmbServerNetworkInterface | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
@@ -1973,7 +1973,7 @@ function SMBDetail {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-SmbMultichannelConnection.txt"
-    [String []] $cmds = "Get-SmbMultichannelConnection | Sort-Object Name | Format-Table -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-SmbMultichannelConnection | Sort-Object Name | Format-Table -AutoSize",
                         "Get-SmbMultichannelConnection -IncludeNotSelected | Format-List -Property *",
                         "Get-SmbMultichannelConnection -SmbInstance CSV -IncludeNotSelected | Format-List -Property *",
                         "Get-SmbMultichannelConnection -SmbInstance SBL -IncludeNotSelected | Format-List -Property *"
@@ -2106,32 +2106,32 @@ function QosDetail {
 
     $file = "Get-NetAdapterQos.txt"
     [String []] $cmds = "Get-NetAdapterQos",
-                        "Get-NetAdapterQos -IncludeHidden | Out-String -Width $columns",
+                        "Get-NetAdapterQos -IncludeHidden",
                         "Get-NetAdapterQos -IncludeHidden | Format-List -Property *"
     ExecCommands -OutDir $dir -File $file -Commands $cmds # Get-NetAdapterQos has severe concurrency issues
 
     $file = "Get-NetQosDcbxSetting.txt"
     [String []] $cmds = "Get-NetQosDcbxSetting",
                         "Get-NetQosDcbxSetting | Format-List  -Property *",
-                        "Get-NetQosDcbxSetting | Format-Table -Property *  -AutoSize | Out-String -Width $columns"
+                        "Get-NetQosDcbxSetting | Format-Table -Property *  -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetQosFlowControl.txt"
     [String []] $cmds = "Get-NetQosFlowControl",
                         "Get-NetQosFlowControl | Format-List  -Property *",
-                        "Get-NetQosFlowControl | Format-Table -Property *  -AutoSize | Out-String -Width $columns"
+                        "Get-NetQosFlowControl | Format-Table -Property *  -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetQosPolicy.txt"
     [String []] $cmds = "Get-NetQosPolicy",
                         "Get-NetQosPolicy | Format-List  -Property *",
-                        "Get-NetQosPolicy | Format-Table -Property *  -AutoSize | Out-String -Width $columns"
+                        "Get-NetQosPolicy | Format-Table -Property *  -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetQosTrafficClass.txt"
     [String []] $cmds = "Get-NetQosTrafficClass",
                         "Get-NetQosTrafficClass | Format-List  -Property *",
-                        "Get-NetQosTrafficClass | Format-Table -Property *  -AutoSize | Out-String -Width $columns"
+                        "Get-NetQosTrafficClass | Format-Table -Property *  -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # QosDetail()
 
@@ -2216,18 +2216,18 @@ function ServicesDrivers {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-HotFix.txt"
-    [String []] $cmds = "Get-Hotfix | Sort-Object InstalledOn | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-Hotfix | Sort-Object InstalledOn | Format-Table -Property * -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-Hotfix | Sort-Object InstalledOn | Format-Table -AutoSize",
+                        "Get-Hotfix | Sort-Object InstalledOn | Format-Table -Property * -AutoSize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-PnpDevice.txt"
-    [String []] $cmds = "Get-PnpDevice | Sort-Object Class, FriendlyName, InstanceId | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-PnpDevice | Sort-Object Class, FriendlyName, InstanceId | Format-List -Property * | Out-String -Width $columns"
+    [String []] $cmds = "Get-PnpDevice | Sort-Object Class, FriendlyName, InstanceId | Format-Table -AutoSize",
+                        "Get-PnpDevice | Sort-Object Class, FriendlyName, InstanceId | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-CimInstance.Win32_PnPSignedDriver.txt"
-    [String []] $cmds = "Get-CimInstance Win32_PnPSignedDriver | Select-Object DeviceName, DeviceId, DriverVersion | Format-Table -AutoSize | Out-String -Width $columns",
-                        "Get-CimInstance Win32_PnPSignedDriver | Format-List -Property * | Out-String -Width $columns"
+    [String []] $cmds = "Get-CimInstance Win32_PnPSignedDriver | Select-Object DeviceName, DeviceId, DriverVersion | Format-Table -AutoSize",
+                        "Get-CimInstance Win32_PnPSignedDriver | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "dism.txt"
@@ -2246,7 +2246,7 @@ function VMHostDetail {
     New-Item -ItemType Directory -Path $dir | Out-Null
 
     $file = "Get-VMHostSupportedVersion.txt"
-    [String []] $cmds = "Get-VMHostSupportedVersion | Format-Table -AutoSize | Out-String -Width $columns",
+    [String []] $cmds = "Get-VMHostSupportedVersion | Format-Table -AutoSize",
                         "Get-VMHostSupportedVersion | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
@@ -2385,7 +2385,7 @@ function Counters {
         }
         return $false
     }
-    $instancesToQuery | Out-File -FilePath $in -Encoding ascii
+    $instancesToQuery | Out-File -FilePath $in -Encoding ascii -Width $columns
 
     $file = "CounterDetail.csv"
     $out  = Join-Path $dir $file
@@ -2490,7 +2490,7 @@ function Sanity {
     $dir = $OutDir
 
     $file = "Get-ChildItem.txt"
-    [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash -Algorithm SHA1 | Format-Table -AutoSize | Out-String -Width $columns"
+    [String []] $cmds = "Get-ChildItem -Path $OutDir -Exclude Get-NetView.log -File -Recurse | Get-FileHash -Algorithm SHA1 | Format-Table -AutoSize"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
     $file = "Metadata.txt"
@@ -2500,7 +2500,7 @@ function Sanity {
     Write-Output "Module Version: $($MyInvocation.MyCommand.Module.Version)" | Out-File -Encoding ascii -Append $out
     Write-Output "Bound Parameters: $paramString" | Out-File -Encoding ascii -Append $out
 
-    [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm SHA1 | Format-List -Property * | Out-String -Width $columns"
+    [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm SHA1 | Format-List -Property *"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 } # Sanity()
 
@@ -2532,7 +2532,7 @@ function LogPostProcess {
     $timeSec = [Math]::Round($stats.Sum / 1000, 2)
 
     Write-Output "Average = $roundedAvg ms, Median = $lazyMedian ms, StdDev = $stdDev ms, Sum = $timeSec s, Count = $($stats.Count)" | Out-File -Encoding ascii -Append $out
-    Write-Output $table | Out-String -Width $columns | Out-File -Encoding ascii -Append $out
+    Write-Output $table | Out-File -Encoding ascii -Width $columns -Append $out
 } # LogPostProcess()
 
 #
