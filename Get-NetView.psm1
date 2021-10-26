@@ -2151,27 +2151,23 @@ function ATCDetail {
     New-Item -ItemType directory -Path $dir | Out-Null
 
     # Local Intents
-    $IntentExists = Get-NetIntent
+    $intent = TryCmd {Get-NetIntent}
+    if ($intent) {
+        $file = "Get-NetIntent_Standalone.txt"
+        [String []] $cmds = "Get-NetIntent"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
 
-    $file = "Get-NetIntent_Standalone.txt"
-    [String []] $cmds = "Get-NetIntent"
-    ExecCommands -OutDir $dir -File $file -Commands $cmds
+        $file = "Get-NetIntentStatus_Standalone.txt"
+        [String []] $cmds = "Get-NetIntentStatus"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
 
-    $file = "Get-NetIntentStatus_Standalone.txt"
-    [String []] $cmds = "Get-NetIntentStatus"
-    ExecCommands -OutDir $dir -File $file -Commands $cmds
-
-    $file = "Get-NetIntentAllGoalStates_Standalone.txt"
-    [String []] $cmds = "Get-NetIntentAllGoalStates | ConvertTo-Json -Depth 10"
-    ExecCommands -OutDir $dir -File $file -Commands $cmds
-
-    # Cluster Intents
-    try {
-        $cluster = Get-Cluster -ErrorAction "Stop"
-    } catch {
-        $cluster = $null
+        $file = "Get-NetIntentAllGoalStates_Standalone.txt"
+        [String []] $cmds = "Get-NetIntentAllGoalStates | ConvertTo-Json -Depth 10"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
     }
 
+    # Cluster Intents
+    $cluster = TryCmd {Get-Cluster}
     if ($cluster) {
         $file = "Get-NetIntent_Cluster.txt"
         [String []] $cmds = "Get-NetIntent -ClusterName $($cluster.Name)"
@@ -2828,7 +2824,7 @@ function Get-NetView {
             NetIp             -OutDir $workDir
             NetNatDetail      -OutDir $workDir
             HNSDetail         -OutDir $workDir
-            #ATCDetail         -OutDir $workDir
+            ATCDetail         -OutDir $workDir
         }
 
         # Wait for threads to complete
