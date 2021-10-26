@@ -12,7 +12,7 @@
 RootModule = 'Get-NetView.psm1'
 
 # Version number of this module.
-ModuleVersion = '2021.10.26.166'
+ModuleVersion = '2021.10.26.172'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Desktop', 'Core'
