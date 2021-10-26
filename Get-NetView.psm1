@@ -25,11 +25,12 @@ $ExecFunctions = {
         [CmdletBinding()]
         Param(
             [parameter(Mandatory=$true)] [String] $OutDir,
-            [parameter(Mandatory=$true)] [String] $Function,
             [parameter(Mandatory=$true)] [String] $Message
         )
 
-        $file = "$Function.Errors.txt"
+        $callerName = (Get-PSCallStack)[1].FunctionName
+
+        $file = "_Error.$callerName.txt"
         $out  = Join-Path $OutDir $file
         Write-Output $Message | Out-File -Encoding ascii -Width $columns -Append $out
     } # ExecControlError()
@@ -748,10 +749,14 @@ function ProtocolNicDetail {
     $dir = $OutDir
 
     $vmsNicDescriptions = TryCmd {(Get-VMSwitch -Id $id).NetAdapterInterfaceDescriptions}
-
-    # Distinguish between LBFO from standard PTNICs and create the hierarchies accordingly
     foreach ($desc in $vmsNicDescriptions) {
         $nic = Get-NetAdapter -InterfaceDescription $desc
+        if (-not $nic) {
+            $msg = "No NetAdapter found with desciption ""$desc""."
+            ExecControlError -OutDir $dir -Message $msg
+            continue
+        }
+
         if ($nic.DriverFileName -like "NdisImPlatform.sys") {
             LbfoWorker -LbfoName $nic.Name -OutDir $dir
         } else {
@@ -809,8 +814,8 @@ function ChelsioDetailPerASIC {
     }
 
     if ([String]::IsNullOrEmpty($ifNameVbd)) {
-        $msg =  "$NicName : Couldn't resolve interface name for bus device."
-        ExecControlError -OutDir $dir -Function "ChelsioDetailPerASIC" -Message $msg
+        $msg = "No bus device found for NIC ""$NicName""."
+        ExecControlError -OutDir $dir -Message $msg
         return
     }
 
@@ -850,10 +855,10 @@ function ChelsioDetail {
                         "Get-PnpDevice -FriendlyName ""*Chelsio*Enumerator*"" | Get-PnpDeviceProperty -KeyName DEVPKEY_Device_DriverVersion | Format-Table -Autosize"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
-    # Check path for cxgbtool.exe, since it's needed to collect most Chelsio related logs.
-    if (-not (Get-Command "cxgbtool.exe" -ErrorAction SilentlyContinue)) {
-        $msg = "Unable to collect Chelsio debug logs as cxgbtool is not present."
-        ExecControlError -OutDir $dir -Function "ChelsioDetail" -Message $msg
+    $cxgbtoolTest = TryCmd {cxgbtool.exe}
+    if (-not $cxgbtoolTest) {
+        $msg = "cxgbtool is required to collect Chelsio diagnostics."
+        ExecControlError -OutDir $dir -Message $msg
         return
     }
 
@@ -865,40 +870,34 @@ function ChelsioDetail {
     New-Item -ItemType Directory -Path $dirNet | Out-Null
 
     # Enumerate NIC
-    [Array] $NetDevices = Get-NetAdapter -InterfaceDescription "*Chelsio*" | where {$_.Status -eq "Up"} | Sort-Object -Property MacAddress
-    $ifNameNic = $null
-    for ($i = 0; $i -lt $NetDevices.Count; $i++) {
-        if ($NicName -eq $NetDevices[$i].Name) {
-            $ifNameNic = "nic$i"
-            break
-        }
-    }
+    $netDevices = Get-NetAdapter -InterfaceDescription "*Chelsio*" | where {$_.Status -eq "Up"} | sort -Property MacAddress
+    $nicIndex = @($netDevices.Name).IndexOf($NicName)
 
-    if ([String]::IsNullOrEmpty($ifNameNic)) {
-        $msg = "Couldn't resolve interface name for Network device(ifIndex:$ifIndex)"
-        ExecControlError -OutDir $dir -Function "ChelsioDetail" -Message $msg
+    if ($nicIndex -eq -1) {
+        $msg = "Invalid state for NIC ""$NicName"". Make sure status is ""Up""."
+        ExecControlError -OutDir $dir -Message $msg
         return
     }
 
     $file = "ChelsioDetail-Debug.txt"
-    [String []] $cmds = "cxgbtool.exe $ifNameNic debug filter",
-                        "cxgbtool.exe $ifNameNic debug qsets",
-                        "cxgbtool.exe $ifNameNic debug qstats txeth rxeth txvirt rxvirt txrdma rxrdma txnvgre rxnvgre",
-                        "cxgbtool.exe $ifNameNic debug dumpctx",
-                        "cxgbtool.exe $ifNameNic debug version",
-                        "cxgbtool.exe $ifNameNic debug eps",
-                        "cxgbtool.exe $ifNameNic debug qps",
-                        "cxgbtool.exe $ifNameNic debug rdma_stats",
-                        "cxgbtool.exe $ifNameNic debug stags",
-                        "cxgbtool.exe $ifNameNic debug l2t"
+    [String []] $cmds = "cxgbtool.exe nic$nicIndex debug filter",
+                        "cxgbtool.exe nic$nicIndex debug qsets",
+                        "cxgbtool.exe nic$nicIndex debug qstats txeth rxeth txvirt rxvirt txrdma rxrdma txnvgre rxnvgre",
+                        "cxgbtool.exe nic$nicIndex debug dumpctx",
+                        "cxgbtool.exe nic$nicIndex debug version",
+                        "cxgbtool.exe nic$nicIndex debug eps",
+                        "cxgbtool.exe nic$nicIndex debug qps",
+                        "cxgbtool.exe nic$nicIndex debug rdma_stats",
+                        "cxgbtool.exe nic$nicIndex debug stags",
+                        "cxgbtool.exe nic$nicIndex debug l2t"
     ExecCommandsAsync -OutDir $dirNet -File $file -Commands $cmds
 
     $file = "ChelsioDetail-Hardware.txt"
-    [String []] $cmds = "cxgbtool.exe $ifNameNic hardware tid_info",
-                        "cxgbtool.exe $ifNameNic hardware fec",
-                        "cxgbtool.exe $ifNameNic hardware link_cfg",
-                        "cxgbtool.exe $ifNameNic hardware pktfilter",
-                        "cxgbtool.exe $ifNameNic hardware sensor"
+    [String []] $cmds = "cxgbtool.exe nic$nicIndex hardware tid_info",
+                        "cxgbtool.exe nic$nicIndex hardware fec",
+                        "cxgbtool.exe nic$nicIndex hardware link_cfg",
+                        "cxgbtool.exe nic$nicIndex hardware pktfilter",
+                        "cxgbtool.exe nic$nicIndex hardware sensor"
     ExecCommandsAsync -OutDir $dirNet -File $file -Commands $cmds
 } # ChelsioDetail()
 
@@ -913,8 +912,8 @@ function MellanoxFirmwareInfo {
 
     $mstStatus = TryCmd {mst status -v}
     if ((-not $mstStatus) -or ($mstStatus -like "*error*")) {
-        $msg = "MFT is not installed on this server"
-        ExecControlError -OutDir $dir -Function "MellanoxFirmwareInfo" -Message $msg
+        $msg = "Mellanox Firmware Tools (MFT) is required to collect firmware diagnostics."
+        ExecControlError -OutDir $dir -Message $msg
         return
     }
 
@@ -929,15 +928,15 @@ function MellanoxFirmwareInfo {
         $busNum, $deviceNum, $functionNum = $info -split "[:.=]" | select -Last 3 | foreach {[Int64]"0x$_"}
 
         if (($hwInfo.Bus -eq $busNum) -and ($hwInfo.Device -eq $deviceNum) -and ($hwInfo.Function -eq $functionNum)) {
-            $found = $true;
+            $found = $true
             $device = $device.Trim()
             break
         }
     }
 
     if (-not $found) {
-        $msg = "No matching device found in mst status"
-        ExecControlError -OutDir $dir -Function "MellanoxFirmwareInfo" -Message $msg
+        $msg = "No device found in mst status matching NIC ""$NicName""."
+        ExecControlError -OutDir $dir -Message $msg
         return
     }
 
@@ -1035,8 +1034,8 @@ function MellanoxDetailPerNic {
             break
         }
         default {
-            $msg = "Driver $driverFileName isn't supported"
-            ExecControlError -OutDir $dir -Function"MellanoxDetailPerNic" -Message $msg
+            $msg = "Unsupported driver $driverFileName."
+            ExecControlError -OutDir $dir -Message $msg
             return
         }
     }
@@ -1053,7 +1052,7 @@ function MellanoxDetailPerNic {
         $file = "$toolName-Snapshot.txt"
         [String []] $cmds = "&""$toolPath"" -SnapShot -name ""$NicName"""
         $functionIds = (Get-NetAdapterSriovVf -Name "$NicName" -ErrorAction SilentlyContinue).FunctionID
-        if($functionIds -ne $null) {
+        if ($functionIds -ne $null) {
             foreach ($id in $functionIds) {
                 $cmds += "&""$toolPath"" -SnapShot -VfStats -name ""$NicName"" -vf $id -register"
             }
@@ -1178,8 +1177,8 @@ function MellanoxDetail {
     $versionMajor, $versionMinor, $_ = $driverVersionString -split "\."
 
     if (($versionMajor -lt 2) -or (($versionMajor -eq 2) -and ($versionMinor -lt 20))) {
-        $msg = "Driver version is $versionMajor.$versionMinor, which is less than 2.20"
-        ExecControlError -OutDir $dir -Function "MellanoxDetail" -Message $msg
+        $msg = "Unsupported driver version $versionMajor.$versionMinor, minimum is 2.20."
+        ExecControlError -OutDir $dir -Message $msg
         return
     }
 
@@ -1298,7 +1297,7 @@ public class MarvellGetDiagData
             }
             else
             {
-                ErrString.Append("MarvellGetDiagDataIoctl: Invalid or not supported Service (" + ServiceName + ")");
+                ErrString.Append("MarvellGetDiagDataIoctl: Invalid or unsupported service (" + ServiceName + ")");
                 return 0;
             }
 
@@ -1392,28 +1391,28 @@ public class MarvellGetDiagData
                             "Get-PnpDeviceProperty -InstanceId '$NDIS_PnPDeviceID' | Select-Object KeyName, Data | Format-Table -Autosize"
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
-        TryCmd {Add-Type -TypeDefinition $MarvellGetDiagDataClass -ErrorAction Stop}
+        Add-Type -TypeDefinition $MarvellGetDiagDataClass -ErrorAction Stop
+        $r = New-Object -TypeName "MarvellGetDiagData"
 
-        $r = New-Object -TypeName MarvellGetDiagData
-
-        $ErrorString = New-Object -TypeName "System.Text.StringBuilder";
-        $Output = $r.MarvellGetDiagDataIoctl($VBD_DeviceID, $OutDir, $VBD_Service, $ErrorString)
-        if ($Output -le 0) {
-            ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $ErrorString.ToString()
+        $errorString = New-Object -TypeName "System.Text.StringBuilder"
+        $output = $r.MarvellGetDiagDataIoctl($VBD_DeviceID, $OutDir, $VBD_Service, $errorString)
+        if ($output -le 0) {
+            $msg = $errorString.ToString()
+            ExecControlError -OutDir $OutDir -Message $msg
         }
 
-        $ErrorString = New-Object -TypeName "System.Text.StringBuilder";
-        $Output = $r.MarvellGetDiagDataIoctl($NDIS_DeviceID, $OutDir, $NDIS_Service, $ErrorString)
-        if ($Output -le 0) {
-            ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $ErrorString.ToString()
+        $errorString.Clear()
+        $output = $r.MarvellGetDiagDataIoctl($NDIS_DeviceID, $OutDir, $NDIS_Service, $errorString)
+        if ($output -le 0) {
+            $msg = $errorString.ToString()
+            ExecControlError -OutDir $OutDir -Message $msg
         }
     } catch {
         $msg = $($error[0] | Out-String)
-        ExecControlError -OutDir $OutDir -Function "MarvellDetail" -Message $msg
+        ExecControlError -OutDir $OutDir -Message $msg
     } finally {
         Remove-Variable MarvellGetDiagDataClass -ErrorAction SilentlyContinue
     }
-
 } # Marvell Detail
 
 function IntelDetail {
@@ -2825,13 +2824,13 @@ function Get-NetView {
             NetNatDetail      -OutDir $workDir
             HNSDetail         -OutDir $workDir
             ATCDetail         -OutDir $workDir
-        }
+        } # $threads
 
         # Wait for threads to complete
         Show-Threads -Threads $threads
     } catch {
-        $msg = $($_ | Out-String)
-        ExecControlError -OutDir $workDir -Function "Get-NetView" -Message $msg
+        $msg = $($_ | Out-String) + "`nStack Trace:`n" + $_.ScriptStackTrace
+        ExecControlError -OutDir $workDir -Message $msg
 
         throw $_
     } finally {
