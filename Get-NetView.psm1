@@ -1,7 +1,6 @@
 $Global:Version = "2021.10.26.172"
 
 $Global:ThreadPool = $null
-$Global:NetAdapterTracker = @()
 
 $Global:QueueActivity = "Queueing tasks..."
 $Global:FinishActivity = "Finishing..."
@@ -643,13 +642,13 @@ function NetAdapterWorkerPrepare {
     $name = $NicName
     $dir  = $OutDir
 
+    $script:NetAdapterTracker += $nic.ifIndex
+
     # Create dir for each NIC
     $nic   = Get-NetAdapter -Name $name -IncludeHidden
     $idx   = $nic.InterfaceIndex
     $desc  = $nic.InterfaceDescription
     $title = "$Type.$idx.$name"
-
-    $Global:NetAdapterTracker += $nic.ifIndex
 
     if ("$desc") {
         $title = "$title.$desc"
@@ -682,6 +681,8 @@ function LbfoWorker {
 
     $name  = $LbfoName
     $title = "LBFO.$name"
+
+    $Global:NetLbfoTracker += $LbfoName
 
     $dir   = Join-Path $OutDir $(ConvertTo-Filename $title)
     New-Item -ItemType directory -Path $dir | Out-Null
@@ -721,20 +722,10 @@ function LbfoDetail {
 
     $dir = $OutDir
 
-    $vmsNicNames = TryCmd {(Get-NetAdapterBinding -ComponentID "vms_pp" | where {$_.Enabled -eq $true}).Name}
-
-    foreach ($lbfo in TryCmd {Get-NetLbfoTeam}) {
-        # Skip all vSwitch Protocol NICs since the LBFO and member
-        # reporting will occur as part of vSwitch reporting.
-        $match = $false
-
-        if ($lbfo.Name -in $vmsNicNames) {
-            $match = $true
-        }
-
-        if (-not $match) {
-            LbfoWorker -LbfoName $lbfo.Name -OutDir $dir
-        }
+    # Query remaining LBFO teams (non-Protocol NICs).
+    $lbfoTeams = TryCmd {Get-NetLbfoTeam} | where {$_.Name -notin $script:NetLbfoTracker}
+    foreach ($lbfo in $lbfoTeams) {
+        LbfoWorker -LbfoName $lbfo.Name -OutDir $dir
     }
 } # LbfoDetail()
 
@@ -774,12 +765,23 @@ function NativeNicDetail {
     $dir = $OutDir
 
     # Query all remaining NetAdapters
-    $nics = Get-NetAdapter -IncludeHidden | where {$_.ifIndex -notin $Global:NetAdapterTracker}
+    $nics = Get-NetAdapter -IncludeHidden | where {$_.ifIndex -notin $script:NetAdapterTracker}
     foreach ($nic in $nics) {
         $type = if (Get-NetAdapterHardwareInfo -Name $nic.Name -IncludeHidden -ErrorAction "SilentlyContinue") {"pNIC"} else {"NIC"}
         NetAdapterWorkerPrepare -NicName $nic.Name -Type $type -OutDir $dir
     }
 } # NativeNicDetail()
+
+function NicDetail {
+    # Track which NICs or LBFO teams have been queried.
+    $script:NetAdapterTracker = @()
+    $script:NetLbfoTracker = @()
+
+    # These functions must be called in the correct order.
+    VMSwitchDetail    -OutDir $workDir
+    LbfoDetail        -OutDir $workDir
+    NativeNicDetail   -OutDir $workDir
+} # NicDetail()
 
 function ChelsioDetailPerASIC {
     [CmdletBinding()]
@@ -2813,9 +2815,7 @@ function Get-NetView {
             LocalhostDetail   -OutDir $workDir
             NetworkSummary    -OutDir $workDir
             NetSetupDetail    -OutDir $workDir
-            VMSwitchDetail    -OutDir $workDir
-            LbfoDetail        -OutDir $workDir
-            NativeNicDetail   -OutDir $workDir
+            NicDetail         -OutDir $workDir
             OneX              -OutDir $workDir
 
             QosDetail         -OutDir $workDir
