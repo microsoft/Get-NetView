@@ -2304,47 +2304,39 @@ function VMHostDetail {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # VMHostDetail()
 
-function NetshTrace {
+function NetshDetail {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $OutDir
+        [parameter(Mandatory=$true)] [String] $OutDir,
+        [parameter(Mandatory=$true)] [Bool] $SkipNetshTrace
     )
 
     $dir = (Join-Path -Path $OutDir -ChildPath "Netsh")
     New-Item -ItemType directory -Path $dir | Out-Null
 
-    <# Deprecated / DELETEME
-        #Figure out how to get this netsh rundown command executing under Powershell with logging...
-        $ndiswpp = "{DD7A21E6-A651-46D4-B7C2-66543067B869}"
-        $vmswpp  = "{1F387CBC-6818-4530-9DB6-5F1058CD7E86}"
-        netsh trace start provider=$vmswpp level=1 keywords=0x00010000 provider=$ndiswpp level=1 keywords=0x02 correlation=disabled report=disabled overwrite=yes tracefile=$dir\NetRundown.etl
-        netsh trace stop
-    #>
+    $wpp_vswitch  = "{1F387CBC-6818-4530-9DB6-5F1058CD7E86}"
+    $wpp_ndis     = "{DD7A21E6-A651-46D4-B7C2-66543067B869}"
+    $etw_tcpip    = "{2F07E2EE-15DB-40F1-90EF-9D7BA282188A}"
+    $etw_quic     = "{ff15e657-4f26-570e-88ab-0796b258d11c}"
 
-    #$wpp_vswitch  = "{1F387CBC-6818-4530-9DB6-5F1058CD7E86}"
-    #$wpp_ndis     = "{DD7A21E6-A651-46D4-B7C2-66543067B869}"
-    #$etw_tcpip    = "{2F07E2EE-15DB-40F1-90EF-9D7BA282188A}"
-    #$etw_quic     = "{ff15e657-4f26-570e-88ab-0796b258d11c}"
-
-    # The sequence below triggers the ETW providers to dump their internal traces when the session starts.  Thus allowing for capturing a
-    # snapshot of their logs/traces.
+    # The sequence below triggers the ETW providers to dump their
+    # internal traces when the session starts. Thus allowing for
+    # capturing a snapshot of their logs/traces.
     #
     # NOTE: This does not cover IFR (in-memory) traces.  More work needed to address said traces.
     $file = "NetRundown.txt"
     [String []] $cmds = "New-NetEventSession    NetRundown -CaptureMode SaveToFile -LocalFilePath $dir\NetRundown.etl",
-                        "Add-NetEventProvider   ""{1F387CBC-6818-4530-9DB6-5F1058CD7E86}"" -SessionName NetRundown -Level 1 -MatchAnyKeyword 0x10000",
-                        "Add-NetEventProvider   ""{DD7A21E6-A651-46D4-B7C2-66543067B869}"" -SessionName NetRundown -Level 1 -MatchAnyKeyword 0x2",
-                        "Add-NetEventProvider   ""{2F07E2EE-15DB-40F1-90EF-9D7BA282188A}"" -SessionName NetRundown -Level 4",
-                        "Add-NetEventProvider   ""{ff15e657-4f26-570e-88ab-0796b258d11c}"" -SessionName NetRundown -Level 5 -MatchAnyKeyword 0x80000000",
+                        "Add-NetEventProvider   ""$wpp_vswitch"" -SessionName NetRundown -Level 1 -MatchAnyKeyword 0x10000",
+                        "Add-NetEventProvider   ""$wpp_ndis"" -SessionName NetRundown -Level 1 -MatchAnyKeyword 0x2",
+                        "Add-NetEventProvider   ""$etw_tcpip"" -SessionName NetRundown -Level 4",
+                        "Add-NetEventProvider   ""$etw_quic"" -SessionName NetRundown -Level 5 -MatchAnyKeyword 0x80000000",
                         "Start-NetEventSession  NetRundown",
                         "Stop-NetEventSession   NetRundown",
                         "Remove-NetEventSession NetRundown"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
-    #
     # The ETL file can be converted to text using the following command:
-    #    netsh trace convert NetRundown.etl tmfpath=\\winbuilds\release\RS_ONECORE_STACK_SDN_DEV1\15014.1001.170117-1700\amd64fre\symbols.pri\TraceFormat
-    #    Specifying a path to the TMF symbols. Output is attached.
+    #    netsh trace convert NetRundown.etl tmfpath=<build>\amd64fre\symbols.pri\TraceFormat
 
     $file = "NetshDump.txt"
     [String []] $cmds = "netsh dump"
@@ -2363,10 +2355,12 @@ function NetshTrace {
     $file = "NetshTrace.txt"
     [String []] $cmds = "netsh -?",
                         "netsh trace show scenarios",
-                        "netsh trace show providers",
-                        "netsh trace diagnose scenario=NetworkSnapshot mode=Telemetry saveSessionTrace=yes report=yes ReportFile=$dir\Snapshot.cab"
+                        "netsh trace show providers"
+    if (-not $SkipNetshTrace) {
+        $cmds +=        "netsh trace diagnose scenario=NetworkSnapshot mode=Telemetry saveSessionTrace=yes report=yes ReportFile=$dir\Snapshot.cab"
+    }
     ExecCommands -OutDir $dir -File $file -Commands $cmds
-} # NetshTrace()
+} # NetshDetail()
 
 function OneX {
     [CmdletBinding()]
@@ -2383,10 +2377,11 @@ function OneX {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # OneX
 
-function Counters {
+function CounterDetail {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $OutDir
+        [parameter(Mandatory=$true)] [String] $OutDir,
+        [parameter(Mandatory=$true)] [String] $SkipCounters
     )
 
     $dir = (Join-Path -Path $OutDir -ChildPath "Counters")
@@ -2420,11 +2415,13 @@ function Counters {
     }
     $instancesToQuery | Out-File -FilePath $in -Encoding ascii -Width $columns
 
-    $file = "CounterDetail.csv"
-    $out  = Join-Path $dir $file
-    [String []] $cmds = "typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > `$null"
-    ExecCommands -OutDir $dir -File $file -Commands $cmds
-} # Counters()
+    if (-not $SkipCounters) {
+        $file = "CounterDetail.csv"
+        $out  = Join-Path $dir $file
+        [String []] $cmds = "typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > `$null"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
+    }
+} # CounterDetail()
 
 function SystemLogs {
     [CmdletBinding()]
@@ -2785,10 +2782,10 @@ function Completion {
     If present, skip the EVT and WER logs gather phases.
 
 .PARAMETER SkipNetshTrace
-    If present, skip the Netsh Trace data gather phases.
+    If present, skip the Netsh Trace data gather phase.
 
 .PARAMETER SkipCounters
-    If present, skip the Windows Performance Counters (WPM) data gather phases.
+    If present, skip the Windows Performance Counters collection phase.
 
 .PARAMETER SkipVm
     If present, skip the Virtual Machine (VM) data gather phases.
@@ -2840,12 +2837,8 @@ function Get-NetView {
 
         Write-Progress -Activity $Global:QueueActivity
         $threads = if ($true) {
-            if (-not $SkipNetshTrace) {
-                Start-Thread ${function:NetshTrace} -Params @{OutDir=$workDir}
-            }
-            if (-not $SkipCounters) {
-                Start-Thread ${function:Counters}   -Params @{OutDir=$workDir}
-            }
+            Start-Thread ${function:NetshDetail}   -Params @{OutDir=$workDir; SkipNetshTrace=$SkipNetshTrace}
+            Start-Thread ${function:CounterDetail} -Params @{OutDir=$workDir; SkipCounters=$SkipCounters}
 
             Environment       -OutDir $workDir
             LocalhostDetail   -OutDir $workDir
