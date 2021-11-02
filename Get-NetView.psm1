@@ -1912,7 +1912,7 @@ function PktmonDetail {
 
     $file = "pktmon.status.txt"
     [String []] $cmds = "pktmon status",
-                        "pktmon stop" # End any existing session
+                        "pktmon stop" # End any pre-existing session
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
     $file = "pktmon.filter.txt"
@@ -1925,7 +1925,7 @@ function PktmonDetail {
                         "pktmon list --all --include-hidden"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
-    # Reset state
+    # Reset state and collect a small snapshot of traffic counters.
     $null = pktmon unload
 
     $file = "pktmon.counters.txt"
