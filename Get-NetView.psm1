@@ -1926,6 +1926,42 @@ function NetworkSummary {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # NetworkSummary()
 
+function PktmonDetail {
+    [CmdletBinding()]
+    Param(
+        [parameter(Mandatory=$true)] [String] $OutDir
+    )
+
+    $dir = (Join-Path -Path $OutDir -ChildPath "Pktmon")
+    New-Item -ItemType directory -Path $dir | Out-Null
+
+    $file = "pktmon.status.txt"
+    [String []] $cmds = "pktmon status",
+                        "pktmon stop" # End any pre-existing session
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    $file = "pktmon.filter.txt"
+    [String []] $cmds = "pktmon filter list"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    $file = "pktmon.list.txt"
+    [String []] $cmds = "pktmon list",
+                        "pktmon list --all",
+                        "pktmon list --all --include-hidden"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    # Reset state and collect a small snapshot of traffic counters.
+    $null = pktmon unload
+
+    $file = "pktmon.counters.txt"
+    [String []] $cmds = "pktmon start --capture --counters-only --comp all",
+                        "Start-Sleep 1",
+                        "pktmon counters --include-hidden --zero --drop-reason"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    $null = pktmon unload
+} # PktmonDetail()
+
 function SMBDetail {
     [CmdletBinding()]
     Param(
@@ -2824,6 +2860,7 @@ function Get-NetView {
             NetNatDetail      -OutDir $workDir
             HNSDetail         -OutDir $workDir
             ATCDetail         -OutDir $workDir
+            PktmonDetail      -OutDir $workDir
         } # $threads
 
         # Wait for threads to complete
