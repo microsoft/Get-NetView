@@ -2316,7 +2316,7 @@ function OneX {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # OneX
 
-function Counters {
+function CounterDetail {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory=$true)] [String] $OutDir,
@@ -2354,15 +2354,13 @@ function Counters {
     }
     $instancesToQuery | Out-File -FilePath $in -Encoding ascii -Width $columns
 
-    if ($SkipCounters) {
-        return
+    if (-not $SkipCounters) {
+        $file = "CounterDetail.csv"
+        $out  = Join-Path $dir $file
+        [String []] $cmds = "typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > `$null"
+        ExecCommands -OutDir $dir -File $file -Commands $cmds
     }
-
-    $file = "CounterDetail.csv"
-    $out  = Join-Path $dir $file
-    [String []] $cmds = "typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > `$null"
-    ExecCommands -OutDir $dir -File $file -Commands $cmds
-} # Counters()
+} # CounterDetail()
 
 function SystemLogs {
     [CmdletBinding()]
@@ -2778,8 +2776,8 @@ function Get-NetView {
 
         Write-Progress -Activity $Global:QueueActivity
         $threads = if ($true) {
-            Start-Thread ${function:NetshDetail} -Params @{OutDir=$workDir; SkipNetshTrace=$SkipNetshTrace}
-            Start-Thread ${function:Counters}    -Params @{OutDir=$workDir; SkipCounters=$SkipCounters}
+            Start-Thread ${function:NetshDetail}   -Params @{OutDir=$workDir; SkipNetshTrace=$SkipNetshTrace}
+            Start-Thread ${function:CounterDetail} -Params @{OutDir=$workDir; SkipCounters=$SkipCounters}
 
             Environment       -OutDir $workDir
             LocalhostDetail   -OutDir $workDir
