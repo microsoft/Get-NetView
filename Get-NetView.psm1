@@ -1047,7 +1047,9 @@ function MellanoxDetailPerNic {
     #
 
     $DriverName = $( if ($driverFileName -in @("Mlx5.sys", "Mlnx5.sys", "Mlnx5Hpc.sys")) {"WinOF2"} else {"WinOF"})
-    if ($DriverName -eq "WinOF2"){
+    if ($DriverName -eq "WinOF2") {
+        # Temporarily disabled as this command can install Data-Center-Bridging feature.
+        <#
         $toolName = $driverFileName -replace ".sys", "Cmd"
         $toolPath = "$driverDir\Management Tools\$toolName.exe"
 
@@ -1060,6 +1062,7 @@ function MellanoxDetailPerNic {
             }
         }
         ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+        #>
     } else {
         MellanoxWinOFTool -NicName $NicName -OutDir $Dir
     }
