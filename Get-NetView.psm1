@@ -1266,6 +1266,8 @@ public class MarvellGetDiagData
         SafeFileHandle shwnd = null;
         FileStream file = null;
 
+        ErrString.Clear();
+
         if ((DeviceID == null) || (FilePath == null))
         {
             ErrString.Append("MarvellGetDiagDataIoctl: Input parameter to MarvellGetDiagDataIoctl is invalid");
@@ -1398,15 +1400,14 @@ public class MarvellGetDiagData
 
         Add-Type -TypeDefinition $MarvellGetDiagDataClass -ErrorAction Stop
         $r = New-Object -TypeName "MarvellGetDiagData"
-
         $errorString = New-Object -TypeName "System.Text.StringBuilder"
+
         $output = $r.MarvellGetDiagDataIoctl($VBD_DeviceID, $OutDir, $VBD_Service, $errorString)
         if ($output -le 0) {
             $msg = $errorString.ToString()
             ExecControlError -OutDir $OutDir -Message $msg
         }
 
-        $errorString.Clear()
         $output = $r.MarvellGetDiagDataIoctl($NDIS_DeviceID, $OutDir, $NDIS_Service, $errorString)
         if ($output -le 0) {
             $msg = $errorString.ToString()
