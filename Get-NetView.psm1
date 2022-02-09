@@ -31,7 +31,7 @@ $ExecFunctions = {
 
         $file = "_Error.$callerName.txt"
         $out  = Join-Path $OutDir $file
-        Write-Output $Message | Out-File -Encoding ascii -Width $columns -Append $out
+        Write-Output $Message | Out-File -Encoding "default" -Width $columns -Append $out
     } # ExecControlError()
 
     enum CommandStatus {
@@ -126,7 +126,7 @@ $ExecFunctions = {
         )
 
         $out = (Join-Path -Path $OutDir -ChildPath $File)
-        $($Commands | foreach {ExecCommand -Command $_}) | Out-File -Encoding ascii -Width $columns -Append $out
+        $($Commands | foreach {ExecCommand -Command $_}) | Out-File -Encoding "default" -Width $columns -Append $out
 
         # With high-concurreny, WMI-based cmdlets sometimes output in an
         # incorrect format or with missing fields. Somehow, this helps
@@ -2417,7 +2417,7 @@ function CounterDetail {
         }
         return $false
     }
-    $instancesToQuery | Out-File -FilePath $in -Encoding ascii -Width $columns
+    $instancesToQuery | Out-File -FilePath $in -Encoding "default" -Width $columns
 
     if (-not $SkipCounters) {
         $file = "CounterDetail.csv"
@@ -2530,9 +2530,9 @@ function Sanity {
     $file = "Metadata.txt"
     $out = Join-Path $dir $file
     $paramString = if ($Params.Count -eq 0) {"None`n`n"} else {"`n$($Params | Out-String)"}
-    Write-Output "Script Version: $($Global:Version)" | Out-File -Encoding ascii -Append $out
-    Write-Output "Module Version: $($MyInvocation.MyCommand.Module.Version)" | Out-File -Encoding ascii -Append $out
-    Write-Output "Bound Parameters: $paramString" | Out-File -Encoding ascii -Append $out
+    Write-Output "Script Version: $($Global:Version)" | Out-File -Encoding "default" -Append $out
+    Write-Output "Module Version: $($MyInvocation.MyCommand.Module.Version)" | Out-File -Encoding "default" -Append $out
+    Write-Output "Bound Parameters: $paramString" | Out-File -Encoding "default" -Append $out
 
     [String []] $cmds = "Get-FileHash -Path ""$PSCommandPath"" -Algorithm SHA1 | Format-List -Property *"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
@@ -2565,8 +2565,8 @@ function LogPostProcess {
     $stdDev = [Math]::Round([Math]::Sqrt($variance), 2)
     $timeSec = [Math]::Round($stats.Sum / 1000, 2)
 
-    Write-Output "Average = $roundedAvg ms, Median = $lazyMedian ms, StdDev = $stdDev ms, Sum = $timeSec s, Count = $($stats.Count)" | Out-File -Encoding ascii -Append $out
-    Write-Output $table | Out-File -Encoding ascii -Width $columns -Append $out
+    Write-Output "Average = $roundedAvg ms, Median = $lazyMedian ms, StdDev = $stdDev ms, Sum = $timeSec s, Count = $($stats.Count)" | Out-File -Encoding "default" -Append $out
+    Write-Output $table | Out-File -Encoding "default" -Width $columns -Append $out
 } # LogPostProcess()
 
 #
@@ -2719,7 +2719,7 @@ function Completion {
         Write-Output "Transcript stopped, output file is $logDir\Get-NetView.log"
         LogPostProcess -OutDir $logDir
     } catch {
-        Write-Output "Stop-Transcript failed" | Out-File -Encoding ascii -Append "$logDir\Get-NetView.log"
+        Write-Output "Stop-Transcript failed" | Out-File -Encoding "default" -Append "$logDir\Get-NetView.log"
     }
 
     Write-Progress -Activity $Global:FinishActivity -Status "Creating zip..."
