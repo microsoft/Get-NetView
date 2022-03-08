@@ -2159,7 +2159,7 @@ function ATCDetail {
 
     # Only run if Azure Stack HCI Edition
     $edition = Get-WindowsEdition -Online
-    if ($edition.Edition -eq 'ServerAzureStackHCICor') {
+    if ($edition.Edition -ne 'ServerAzureStackHCICor') {
         return
     }
 
