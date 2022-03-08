@@ -2615,6 +2615,11 @@ function Initialize {
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
+    # Remove color codes from output.
+    if ($PSVersionTable.PSVersion -ge "7.2") {
+        $PSStyle.OutputRendering = [System.Management.Automation.OutputRendering]::Host
+    }
+
     # Remove alias to Write-Host set in $ExecCommands
     Remove-Item alias:Write-CmdLog -ErrorAction "SilentlyContinue"
 
