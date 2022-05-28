@@ -9,8 +9,11 @@ $Global:ChelsioDeviceDirs = @{}
 $Global:MellanoxSystemLogDir = ""
 
 $ExecFunctions = {
+    param(
+        [parameter(Mandatory=$true)] [Hashtable] $ExecParams
+    )
+
     $columns   = 4096
-    $Global:DelayFactor = 0
 
     # Alias Write-CmdLog to Write-Host for background threads,
     # since console color only applies to the main thread.
@@ -35,7 +38,7 @@ $ExecFunctions = {
     } # ExecControlError()
 
     enum CommandStatus {
-        NotTested    # Indicates problem with TestCommand
+        NotRun       # The command was not executed
         Unavailable  # [Part of] the command doesn't exist
         Failed       # An error prevented successful execution
         Success      # No errors or exceptions
@@ -49,9 +52,15 @@ $ExecFunctions = {
             [parameter(Mandatory=$true)] [String] $Command
         )
 
-        $status = [CommandStatus]::NotTested
+        $status = [CommandStatus]::NotRun
         $duration = [TimeSpan]::Zero
         $commandOut = ""
+
+        # Check timeout
+        $delta = (Get-Date) - $ExecParams.StartTime
+        if ($delta.TotalMinutes -gt $ExecParams.Timeout) {
+            return $status, $duration.TotalMilliseconds, $commandOut
+        }
 
         try {
             $error.Clear()
@@ -112,8 +121,8 @@ $ExecFunctions = {
 
         Write-CmdLog "$logPrefix $Command"
 
-        if ($Global:DelayFactor -gt 0) {
-            Start-Sleep -Milliseconds ($duration * $Global:DelayFactor + 0.50) # round up
+        if ($ExecParams.DelayFactor -gt 0) {
+            Start-Sleep -Milliseconds ($duration * $ExecParams.DelayFactor + 0.50) # round up
         }
     } # ExecCommand()
 
@@ -134,8 +143,6 @@ $ExecFunctions = {
         $null = Get-NetAdapter
     } # ExecCommands()
 } # $ExecFunctions
-
-. $ExecFunctions # import into script context
 
 <#
 .SYNOPSIS
@@ -265,12 +272,14 @@ function Start-Thread {
 
         $ps.RunspacePool = $Global:ThreadPool
         $null = $ps.AddScript("Set-Location `"$(Get-Location)`"")
-        $null = $ps.AddScript($ExecFunctions) # import into thread context
+        $null = $ps.AddScript($ExecFunctions).AddParameter("ExecParams", $Global:ExecParams)
         $null = $ps.AddScript($ScriptBlock, $true).AddParameters($Params)
 
         $async = $ps.BeginInvoke()
 
-        return @{AsyncResult=$async; PowerShell=$ps}
+        $cmd = if ($ScriptBlock -eq ${function:ExecCommands}) {$Params.Commands} else {$ScriptBlock.Ast.Name}
+
+        return @{AsyncResult=$async; Command=$cmd; PowerShell=$ps}
     }
 } # Start-Thread()
 
@@ -303,6 +312,17 @@ function Show-Threads {
                 $mThreads.RemoveAt($i)
                 $i--
             }
+        }
+
+        $delta = (Get-Date) - $Global:ExecParams.StartTime
+        if ($delta.TotalMinutes -gt $Global:ExecParams.Timeout) {
+            Write-Warning "Timeout was hit."
+
+            $mThreads | foreach {
+                Write-Host "Stopping thread $($_.Command)."
+                $_.PowerShell.EndStop($_.PowerShell.BeginStop($null, $_.AsyncResult))
+            }
+            return
         }
 
         Start-Sleep -Milliseconds 33 # ~30 Hz
@@ -2611,9 +2631,16 @@ function Initialize {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory=$true)] [Int] $BackgroundThreads,
+        [parameter(Mandatory=$true)] [Int] $Timeout,
         [parameter(Mandatory=$true)] [Double] $ExecutionRate,
         [parameter(Mandatory=$true)] [String] $OutDir
     )
+
+    $Global:ExecParams = @{
+        StartTime = Get-Date
+        Timeout = $Timeout
+        DelayFactor = (1 / $ExecutionRate) - 1
+    }
 
     # Remove color codes from output.
     if ($PSVersionTable.PSVersion -ge "7.2") {
@@ -2630,8 +2657,6 @@ function Initialize {
     Start-Transcript -Path "$OutDir\Get-NetView.log"
 
     if ($ExecutionRate -lt 1) {
-        $Global:DelayFactor = (1 / $ExecutionRate) - 1
-
         Write-Host "Forcing BackgroundThreads=0 because ExecutionRate is less than 1."
         $BackgroundThreads = 0
     }
@@ -2663,13 +2688,16 @@ function Completion {
     $logDir  = (Join-Path -Path $Src -ChildPath "_Logs")
     New-Item -ItemType directory -Path $logDir | Out-Null
 
+    # Override timeout for post-processing.
+    $Global:ExecParams.Timeout = [Int]::MaxValue
+
     Close-GlobalThreadPool
 
     Write-Progress -Activity $Global:FinishActivity -Status "Processing output..."
     Sanity -OutDir $logDir -Params $PSBoundParameters
 
     # Collect statistics
-    $timestamp = $start | Get-Date -f yyyy.MM.dd_hh.mm.ss
+    $timestamp = $Global:ExecParams.StartTime | Get-Date -f yyyy.MM.dd_hh.mm.ss
 
     $dirs = (Get-ChildItem $Src -Recurse | Measure-Object -Property length -Sum) # out folder size
     $hash = (Get-FileHash -Path $MyInvocation.PSCommandPath -Algorithm "SHA1").Hash # script hash
@@ -2689,7 +2717,7 @@ function Completion {
     Write-Host ""
     Write-Host "Execution Time:"
     Write-Host "---------------"
-    $delta = (Get-Date) - $Start
+    $delta = (Get-Date) - $Global:ExecParams.StartTime
     Write-Host "$($delta.Minutes) Min $($delta.Seconds) Sec"
     Write-Host ""
 
@@ -2752,6 +2780,10 @@ function Completion {
 .PARAMETER BackgroundThreads
     Maximum number of background tasks, from 0 - 16. Defaults to 5.
 
+.PARAMETER Timeout
+    Amount of time, in minutes, to wait for all commands to complete. Note that total runtime may be greater due to
+    post-processing. Defaults to 120 minutes.
+
 .PARAMETER ExecutionRate
     Relative rate at which commands are executed, with 1 being normal speed. Reduce to slow down execution and spread
     CPU usage over time. Useful on live or production systems to avoid disruption.
@@ -2797,6 +2829,10 @@ function Get-NetView {
         [Int] $BackgroundThreads = 5,
 
         [parameter(Mandatory=$false)]
+        [ValidateRange(0, [Int]::MaxValue)]
+        [Int] $Timeout = 120,
+
+        [parameter(Mandatory=$false)]
         [ValidateRange(0.0001, 1)]
         [Double] $ExecutionRate = 1,
 
@@ -2807,13 +2843,14 @@ function Get-NetView {
         [parameter(Mandatory=$false)]  [Switch] $SkipVm         = $false
     )
 
-    $start = Get-Date
-
     # Input Validation
     CheckAdminPrivileges $SkipAdminCheck
     $workDir = NormalizeWorkDir -OutputDirectory $OutputDirectory
 
-    Initialize -BackgroundThreads $BackgroundThreads -ExecutionRate $ExecutionRate -OutDir $workDir
+    Initialize -BackgroundThreads $BackgroundThreads -Timeout $Timeout -ExecutionRate $ExecutionRate -OutDir $workDir
+
+    # Import exec commands into script context
+    . $ExecFunctions -ExecParams $Global:ExecParams
 
     # Start Run
     try {
