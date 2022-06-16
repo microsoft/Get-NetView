@@ -2,45 +2,28 @@
 [![downloads](https://img.shields.io/powershellgallery/dt/Get-NetView.svg?label=downloads)](https://www.powershellgallery.com/packages/Get-NetView)
 
 # Description
-
-Get-NetView is a tool used to simplify the collection of network configuration information for diagnosis of networking issues on Windows.
-
-## :star: More by the Microsoft Core Networking team
-
-Find more from the Core Networking team using the [MSFTNet](https://github.com/topics/msftnet) topic
+Get-NetView is a tool that collects local system and network configuration data, to streamline diagnosis of Windows networking issues.
 
 # Installation
+## PowerShell Gallery
+To install this module from [PowerShell Gallery](https://www.powershellgallery.com/), run:
+```PowerShell
+Install-Module Get-NetView -SkipPublisherCheck -Force
+```
+It is also part of `MSFT.Network.Diag`, which can be installed with:
+```PowerShell
+Install-Module MSFT.Network.Diag
+```
 
-## MSFT.Network.Diag
-
-This module is part of MSFT.Network.Diag which can be installed using this command:
-
-```Install-Module MSFT.Network.Diag```
-
-## Direct Installation from PowerShell Gallery
-
-Or install this module individually using this command:
-
-```Install-Module Get-NetView```
-
-## Installation on disconnected/air-gapped systems
-
-If your servers are disconnected/air-gapped, use these commands:
-
-```Save-Module Get-NetView C:\SomeFolderPath```
-
-Move the Get-NetView folder (from c:\SomeFolderPath) to C:\Program Files\WindowsPowerShell\Modules on your target server, then run:
-
-```Get-NetView```
-
-## To find more from the Networking Team
-
-To see all modules from the Microsoft Core Networking team, please use:
-
-```Find-Module -Tag MSFTNet```
+## Disconnected or air-gapped systems
+If your servers are disconnected or air-gapped, use:
+```PowerShell
+Save-Module Get-NetView C:\SomeFolderPath
+```
+Then move the Get-NetView folder (from `C:\SomeFolderPath`) to `C:\Program Files\WindowsPowerShell\Modules` on your target server.
 
 ## Direct Execution
-The legacy method of direct execution is still supported:
+This script also supports direct execution:
 ```PowerShell
 Invoke-WebRequest "aka.ms/Get-NetView" -OutFile "Get-NetView.ps1"
 .\Get-NetView.ps1 -OutputDir .\
@@ -50,17 +33,29 @@ If blocked by execution policy:
 Powershell.exe -ExecutionPolicy Bypass -File  .\Get-NetView.ps1 -OutputDir .\
 ```
 
-## Usage
+# Usage
+To begin data collection, simply run:
+```PowerShell
+Get-NetView
+```
+The output is saved to `Desktop\msdbg.<username>`, and can be inspected with any file manager. On completion, a .zip file is created for easy sharing.
 
-For help and options when running this command directly, use:
+For additional help and advanced options, run:
 ```PowerShell
 Get-Help Get-NetView
 ```
 
 This tool is also run automatically by [Get-SDDCDiagnosticInfo](https://github.com/PowerShell/PrivateCloud.DiagnosticInfo).
 
-# Contributing
+# :star: More by the Microsoft Core Networking team
+Find more from the Core Networking team using the [MSFTNet](https://github.com/topics/msftnet) topic.
 
+To see all modules from the Microsoft Core Networking team, use:
+```PowerShell
+Find-Module -Tag MSFTNet
+```
+
+# Contributing
 This project welcomes contributions and suggestions.  Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
 the rights to use your contribution. For details, visit https://cla.microsoft.com.
