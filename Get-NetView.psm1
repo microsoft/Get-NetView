@@ -1,4 +1,4 @@
-$Global:Version = "2022.5.28.198"
+$Global:Version = "2022.7.26.199"
 
 $Global:ThreadPool = $null
 
