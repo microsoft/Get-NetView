@@ -462,12 +462,14 @@ function NetIp {
 
     $file = "Get-NetTcpSetting.txt"
     [String []] $cmds = "Get-NetTcpSetting | Format-Table -AutoSize",
-                        "Get-NetTcpSetting | Format-Table -Property * -AutoSize"
+                        "Get-NetTcpSetting | Format-Table -Property * -AutoSize",
+                        "Get-NetTcpSetting | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetTransportFilter.txt"
     [String []] $cmds = "Get-NetTransportFilter | Format-Table -AutoSize",
-                        "Get-NetTransportFilter | Format-Table -Property * -AutoSize"
+                        "Get-NetTransportFilter | Format-Table -Property * -AutoSize",
+                        "Get-NetTransportFilter | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-NetUDPEndpoint.txt"
