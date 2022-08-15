@@ -1,6 +1,7 @@
 $Global:Version = "2022.7.26.199"
 
-$Global:ThreadPool = $null
+$Script:RunspacePool = $null
+$Script:ThreadList = [Collections.ArrayList]@()
 
 $Global:QueueActivity = "Queueing tasks..."
 $Global:FinishActivity = "Finishing..."
@@ -223,39 +224,65 @@ function Write-CmdLog {
             $logColor = [ConsoleColor]::Gray
             break
         }
+        "*``[NotRun``]*" {
+            $logColor = [ConsoleColor]::DarkMagenta
+            break
+        }
     }
 
     Write-Host $CmdLog -ForegroundColor $logColor
 } # Write-CmdLog()
 
-function Open-GlobalThreadPool {
+function Open-GlobalRunspacePool {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory=$true)] [Int] $BackgroundThreads
     )
 
     if ($BackgroundThreads -gt 0) {
-        $Global:ThreadPool = [RunspaceFactory]::CreateRunspacePool(1, $BackgroundThreads)
-        $Global:ThreadPool.Open()
+        $Script:RunspacePool = [RunspaceFactory]::CreateRunspacePool(1, $BackgroundThreads)
+        $Script:RunspacePool.Open()
     }
 
     if ($BackgroundThreads -le 1) {
         Set-Alias ExecCommandsAsync ExecCommands
         $Global:QueueActivity = "Executing commands..."
     }
-} # Open-GlobalThreadPool()
+} # Open-GlobalRunspacePool()
 
-function Close-GlobalThreadPool {
+function Close-GlobalRunspacePool {
     [CmdletBinding()]
     Param()
 
-    if ($Global:ThreadPool -ne $null) {
+    if ($Script:RunspacePool -ne $null) {
         Write-Progress -Activity $Global:FinishActivity -Status "Cleanup background threads..."
-        $Global:ThreadPool.Close()
-        $Global:ThreadPool.Dispose()
-        $Global:ThreadPool = $null
+
+        if ($Script:ThreadList.Count -gt 0) {
+            # Kill any DISM child process, which ignores below Stop attempt...
+            $dismId = @(Get-CimInstance "Win32_Process" -Filter "Name = 'DismHost.exe' AND ParentProcessId = $PID").ProcessId
+            if ($dismId.Count -gt 0) {
+                Stop-Process -Id $dismId -Force
+            }
+
+            # Asyncronously stop all threads.
+            $Script:ThreadList | foreach {
+                $_.AsyncStop = $_.PowerShell.BeginStop($null, $_.AsyncInvoke)
+            }
+
+            # Wait for stops to complete.
+            $Script:ThreadList | foreach {
+                Write-CmdLog "(     0 ms) [NotRun] $($_.Command)"
+                $_.PowerShell.EndStop($_.AsyncStop)
+            }
+
+            $Script:ThreadList.Clear()
+        }
+
+        $Script:RunspacePool.Close()
+        $Script:RunspacePool.Dispose()
+        $Script:RunspacePool = $null
     }
-} # Close-GlobalThreadPool()
+} # Close-GlobalRunspacePool()
 
 function Start-Thread {
     [CmdletBinding()]
@@ -264,13 +291,13 @@ function Start-Thread {
         [parameter(Mandatory=$false)] [Hashtable] $Params = @{}
     )
 
-    if ($Global:ThreadPool -eq $null) {
+    if ($null -eq $Script:RunspacePool) {
         # Execute command synchronously instead
         &$ScriptBlock @Params
     } else {
         $ps = [PowerShell]::Create()
 
-        $ps.RunspacePool = $Global:ThreadPool
+        $ps.RunspacePool = $Script:RunspacePool
         $null = $ps.AddScript("Set-Location `"$(Get-Location)`"")
         $null = $ps.AddScript($ExecFunctions).AddParameter("ExecParams", $Global:ExecParams)
         $null = $ps.AddScript($ScriptBlock, $true).AddParameters($Params)
@@ -279,50 +306,42 @@ function Start-Thread {
 
         $cmd = if ($ScriptBlock -eq ${function:ExecCommands}) {$Params.Commands} else {$ScriptBlock.Ast.Name}
 
-        return @{AsyncResult=$async; Command=$cmd; PowerShell=$ps}
+        $null = $Script:ThreadList.Add(@{AsyncInvoke=$async; Command=$cmd; PowerShell=$ps})
     }
 } # Start-Thread()
 
 function Show-Threads {
     [CmdletBinding()]
-    Param(
-        [parameter(Mandatory=$false)] [Hashtable[]] $Threads
-    )
+    Param()
 
-    $mThreads = [Collections.ArrayList]$Threads
-    $totalTasks = $mThreads.Count
+    $totalTasks = $Script:ThreadList.Count
 
-    while ($mThreads.Count -gt 0) {
-        Write-Progress -Activity "Waiting for all tasks to complete..." -Status "$($mThreads.Count) remaining." -PercentComplete (100 * (1 - $mThreads.Count / $totalTasks))
+    while ($Script:ThreadList.Count -gt 0) {
+        Write-Progress -Activity "Waiting for all tasks to complete..." -Status "$($Script:ThreadList.Count) remaining." -PercentComplete (100 * (1 - $Script:ThreadList.Count / $totalTasks))
 
-        for ($i = 0; $i -lt $mThreads.Count; $i++) {
-            $thread = $mThreads[$i]
+        for ($i = 0; $i -lt $Script:ThreadList.Count; $i++) {
+            $thread = $Script:ThreadList[$i]
 
             $thread.Powershell.Streams.Warning | Out-Host
             $thread.Powershell.Streams.Warning.Clear()
             $thread.Powershell.Streams.Information | foreach {Write-CmdLog "$_"}
             $thread.Powershell.Streams.Information.Clear()
 
-            if ($thread.AsyncResult.IsCompleted) {
+            if ($thread.AsyncInvoke.IsCompleted) {
                 # Accessing Streams.Error blocks until thread is completed
                 $thread.Powershell.Streams.Error | Out-Host
                 $thread.Powershell.Streams.Error.Clear()
 
-                $thread.PowerShell.EndInvoke($thread.AsyncResult)
-                $mThreads.RemoveAt($i)
+                $thread.PowerShell.EndInvoke($thread.AsyncInvoke)
+                $Script:ThreadList.RemoveAt($i)
                 $i--
             }
         }
 
         $delta = (Get-Date) - $Global:ExecParams.StartTime
         if ($delta.TotalMinutes -gt $Global:ExecParams.Timeout) {
-            Write-Warning "Timeout was hit."
-
-            $mThreads | foreach {
-                Write-Host "Stopping thread $($_.Command)."
-                $_.PowerShell.EndStop($_.PowerShell.BeginStop($null, $_.AsyncResult))
-            }
-            return
+            Write-Warning "Timeout was reached."
+            break
         }
 
         Start-Sleep -Milliseconds 33 # ~30 Hz
@@ -2663,7 +2682,7 @@ function Initialize {
         $BackgroundThreads = 0
     }
 
-    Open-GlobalThreadPool -BackgroundThreads $BackgroundThreads
+    Open-GlobalRunspacePool -BackgroundThreads $BackgroundThreads
 } # Initialize()
 
 function CreateZip {
@@ -2693,7 +2712,7 @@ function Completion {
     # Override timeout for post-processing.
     $Global:ExecParams.Timeout = [Int]::MaxValue
 
-    Close-GlobalThreadPool
+    Close-GlobalRunspacePool
 
     Write-Progress -Activity $Global:FinishActivity -Status "Processing output..."
     Sanity -OutDir $logDir -Params $PSBoundParameters
@@ -2726,7 +2745,7 @@ function Completion {
     try {
         Stop-Transcript | Out-Null
         Move-Item -Path "$Src\Get-NetView.log" -Destination "$logDir\Get-NetView.log"
-        Write-Output "Transcript stopped, output file is $logDir\Get-NetView.log"
+        Write-Host "Transcript stopped, output file is $logDir\Get-NetView.log"
         LogPostProcess -OutDir $logDir
     } catch {
         Write-Output "Stop-Transcript failed" | Out-File -Encoding "default" -Append "$logDir\Get-NetView.log"
@@ -2859,28 +2878,26 @@ function Get-NetView {
         CustomModule -OutDir $workDir -Commands $ExtraCommands
 
         Write-Progress -Activity $Global:QueueActivity
-        $threads = if ($true) {
-            Start-Thread ${function:NetshDetail}   -Params @{OutDir=$workDir; SkipNetshTrace=$SkipNetshTrace}
-            Start-Thread ${function:CounterDetail} -Params @{OutDir=$workDir; SkipCounters=$SkipCounters}
 
-            Environment       -OutDir $workDir
-            LocalhostDetail   -OutDir $workDir
-            NetworkSummary    -OutDir $workDir
-            NetSetupDetail    -OutDir $workDir
-            NicDetail         -OutDir $workDir
-            OneX              -OutDir $workDir
+        Start-Thread ${function:NetshDetail}   -Params @{OutDir=$workDir; SkipNetshTrace=$SkipNetshTrace}
+        Start-Thread ${function:CounterDetail} -Params @{OutDir=$workDir; SkipCounters=$SkipCounters}
 
-            QosDetail         -OutDir $workDir
-            SMBDetail         -OutDir $workDir
-            NetIp             -OutDir $workDir
-            NetNatDetail      -OutDir $workDir
-            HNSDetail         -OutDir $workDir
-            ATCDetail         -OutDir $workDir
-            PktmonDetail      -OutDir $workDir
-        } # $threads
+        Environment       -OutDir $workDir
+        LocalhostDetail   -OutDir $workDir
+        NetworkSummary    -OutDir $workDir
+        NetSetupDetail    -OutDir $workDir
+        NicDetail         -OutDir $workDir
+        OneX              -OutDir $workDir
 
-        # Wait for threads to complete
-        Show-Threads -Threads $threads
+        QosDetail         -OutDir $workDir
+        SMBDetail         -OutDir $workDir
+        NetIp             -OutDir $workDir
+        NetNatDetail      -OutDir $workDir
+        HNSDetail         -OutDir $workDir
+        ATCDetail         -OutDir $workDir
+        PktmonDetail      -OutDir $workDir
+
+        Show-Threads
     } catch {
         $msg = $($_ | Out-String) + "`nStack Trace:`n" + $_.ScriptStackTrace
         ExecControlError -OutDir $workDir -Message $msg
