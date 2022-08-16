@@ -221,11 +221,11 @@ function Write-CmdLog {
             break
         }
         "*``[Unavailable``]*" {
-            $logColor = [ConsoleColor]::Gray
+            $logColor = [ConsoleColor]::DarkGray
             break
         }
         "*``[NotRun``]*" {
-            $logColor = [ConsoleColor]::DarkMagenta
+            $logColor = [ConsoleColor]::Gray
             break
         }
     }
@@ -422,6 +422,8 @@ function NetIp {
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $($MyInvocation.MyCommand.Name)"
+
     $dir = (Join-Path -Path $OutDir -ChildPath "NetIp")
     New-Item -ItemType directory -Path $dir | Out-Null
 
@@ -507,6 +509,8 @@ function NetNatDetail {
     Param(
         [parameter(Mandatory=$true)] [String] $OutDir
     )
+
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $($MyInvocation.MyCommand.Name)"
 
     $dir = (Join-Path -Path $OutDir -ChildPath "NetNat")
     New-Item -ItemType directory -Path $dir | Out-Null
@@ -1952,6 +1956,8 @@ function PktmonDetail {
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $($MyInvocation.MyCommand.Name)"
+
     $dir = (Join-Path -Path $OutDir -ChildPath "Pktmon")
     New-Item -ItemType directory -Path $dir | Out-Null
 
@@ -1987,6 +1993,8 @@ function SMBDetail {
     Param(
         [parameter(Mandatory=$true)] [String] $OutDir
     )
+
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $($MyInvocation.MyCommand.Name)"
 
     $dir = (Join-Path -Path $OutDir -ChildPath "SMB")
     New-Item -ItemType directory -Path $dir | Out-Null
@@ -2074,6 +2082,8 @@ function HNSDetail {
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $($MyInvocation.MyCommand.Name)"
+
     try {
         $null = Get-Service "hns" -ErrorAction Stop
     } catch {
@@ -2104,7 +2114,7 @@ function HNSDetail {
     try {
         if ($hnsRunning) {
             # Force stop to avoid command line prompt
-            $null = net stop hns /y
+            net stop hns /y *> $null
         }
 
         $file = "HNSData.txt"
@@ -2112,7 +2122,7 @@ function HNSDetail {
         ExecCommands -OutDir $dir -File $file -Commands $cmds
     } finally {
         if ($hnsRunning) {
-            $null = net start hns
+            net start hns *> $null
         }
     }
 
@@ -2158,6 +2168,8 @@ function QosDetail {
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $($MyInvocation.MyCommand.Name)"
+
     $dir = (Join-Path -Path $OutDir -ChildPath "NetQoS")
     New-Item -ItemType directory -Path $dir | Out-Null
 
@@ -2198,9 +2210,11 @@ function ATCDetail {
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
-    # Only run if Azure Stack HCI Edition
-    $edition = Get-WindowsEdition -Online
-    if ($edition.Edition -ne 'ServerAzureStackHCICor') {
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $($MyInvocation.MyCommand.Name)"
+
+    $intent = Get-Command "Get-NetIntent" -ErrorAction "SilentlyContinue"
+    $cluster = Get-Command "Get-Cluster" -ErrorAction "SilentlyContinue"
+    if (-not ($intent -or $cluster)) {
         return
     }
 
@@ -2208,7 +2222,6 @@ function ATCDetail {
     New-Item -ItemType directory -Path $dir | Out-Null
 
     # Local Intents
-    $intent = TryCmd {Get-NetIntent}
     if ($intent) {
         $file = "Get-NetIntent_Standalone.txt"
         [String []] $cmds = "Get-NetIntent"
@@ -2224,7 +2237,6 @@ function ATCDetail {
     }
 
     # Cluster Intents
-    $cluster = TryCmd {Get-Cluster}
     if ($cluster) {
         $file = "Get-NetIntent_Cluster.txt"
         [String []] $cmds = "Get-NetIntent -ClusterName $($cluster.Name)"
@@ -2387,6 +2399,8 @@ function OneX {
     Param(
         [parameter(Mandatory=$true)] [String] $OutDir
     )
+
+    Write-Progress -Activity $Global:QueueActivity -Status "Processing $($MyInvocation.MyCommand.Name)"
 
     $dir = (Join-Path -Path $OutDir -ChildPath "802.1X")
     New-Item -ItemType directory -Path $dir | Out-Null
@@ -2668,9 +2682,6 @@ function Initialize {
         $PSStyle.OutputRendering = [System.Management.Automation.OutputRendering]::Host
     }
 
-    # Remove alias to Write-Host set in $ExecCommands
-    Remove-Item alias:Write-CmdLog -ErrorAction "SilentlyContinue"
-
     # Setup output folder
     EnvDestroy $OutDir
     EnvCreate $OutDir
@@ -2872,6 +2883,7 @@ function Get-NetView {
 
     # Import exec commands into script context
     . $ExecFunctions -ExecParams $Global:ExecParams
+    Remove-Item alias:Write-CmdLog -ErrorAction "SilentlyContinue"
 
     # Start Run
     try {
