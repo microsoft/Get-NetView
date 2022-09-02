@@ -1945,8 +1945,14 @@ function NetworkSummary {
     $file = "_nmbind.txt"
     [String []] $cmds = "nmbind"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
     $file = "_advfirewall.txt"
     [String []] $cmds = "netsh advfirewall show allprofiles"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+    $file = "_netcfg.txt"
+    [String []] $cmds = "netcfg -s n",
+                        "netcfg -m -v"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # NetworkSummary()
 
