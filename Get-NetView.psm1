@@ -2423,8 +2423,7 @@ function OneX {
 function CounterDetail {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $OutDir,
-        [parameter(Mandatory=$true)] [String] $SkipCounters
+        [parameter(Mandatory=$true)] [String] $OutDir
     )
 
     $dir = (Join-Path -Path $OutDir -ChildPath "Counters")
@@ -2458,12 +2457,11 @@ function CounterDetail {
     }
     $instancesToQuery | Out-File -FilePath $in -Encoding "default" -Width $columns
 
-    if (-not $SkipCounters) {
-        $file = "CounterDetail.csv"
-        $out  = Join-Path $dir $file
-        [String []] $cmds = "typeperf -cf $in -sc 10 -si 5 -f CSV -o $out > `$null"
-        ExecCommands -OutDir $dir -File $file -Commands $cmds
-    }
+    $file = "CounterDetail.csv"
+    $out  = Join-Path $dir $file
+    [String []] $cmds = "typeperf -cf $in -sc 5 -si 1 -f CSV -o $out > `$null"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
 } # CounterDetail()
 
 function SystemLogs {
@@ -2838,6 +2836,9 @@ function Completion {
 .PARAMETER SkipLogs
     If present, skip the EVT and WER logs gather phases.
 
+.PARAMETER SkipNetsh
+    If present, skip all Netsh commands.
+
 .PARAMETER SkipNetshTrace
     If present, skip the Netsh Trace data gather phase.
 
@@ -2879,6 +2880,7 @@ function Get-NetView {
 
         [parameter(Mandatory=$false)]  [Switch] $SkipAdminCheck = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipLogs       = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipNetsh      = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipNetshTrace = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipCounters   = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipVm         = $false
@@ -2900,8 +2902,13 @@ function Get-NetView {
 
         Write-Progress -Activity $Global:QueueActivity
 
-        Start-Thread ${function:NetshDetail}   -Params @{OutDir=$workDir; SkipNetshTrace=$SkipNetshTrace}
-        Start-Thread ${function:CounterDetail} -Params @{OutDir=$workDir; SkipCounters=$SkipCounters}
+        if (-not $SkipNetsh) {
+            Start-Thread ${function:NetshDetail}   -Params @{OutDir=$workDir; SkipNetshTrace=$SkipNetshTrace}
+        }
+
+        if (-not $SkipCounters) {
+            Start-Thread ${function:CounterDetail} -Params @{OutDir=$workDir}
+        }
 
         Environment       -OutDir $workDir
         LocalhostDetail   -OutDir $workDir
