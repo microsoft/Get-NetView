@@ -2493,7 +2493,8 @@ function SystemLogs {
 function Environment {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $OutDir
+        [parameter(Mandatory=$true)] [String] $OutDir,
+        [parameter(Mandatory=$true)] [Bool] $SkipWindowsRegistry
     )
 
     $dir = $OutDir
@@ -2517,6 +2518,17 @@ function Environment {
                         "Get-CimInstance ""Win32_Processor"" | Format-List -Property *",
                         "systeminfo"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
+    if (-not $SkipWindowsRegistry) {
+        $file = "RegistryFileExportOperationStatus.txt"
+        mkdir "$OutDir\RegistryFiles"
+        [String []] $cmds = "reg export HKLM $OutDir\RegistryFiles\hklm.reg",
+                            "reg export HKCU $OutDir\RegistryFiles\hkcu.reg",
+                            "reg export HKCR $OutDir\RegistryFiles\hkcr.reg",
+                            "reg export HKU $OutDir\RegistryFiles\hku.reg",
+                            "reg export HKCC $OutDir\RegistryFiles\hkcc.reg"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    }
 } # Environment()
 
 function LocalhostDetail {
@@ -2721,8 +2733,16 @@ function CreateZip {
 function Completion {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $Src
+        [parameter(Mandatory=$true)] [String] $Src,
+        [parameter(Mandatory=$true)] [Bool] $SkipWindowsRegistry
     )
+
+    # Zip registry files and delete uncompressed versions
+    if (-not $SkipWindowsRegistry) {
+        CreateZip -Src "$Src\RegistryFiles" -Out "$Src\RegistryFiles.zip"
+        Remove-Item "$Src\RegistryFileExportOperationStatus.txt"
+        Remove-Item "$Src\RegistryFiles" -Force -Recurse
+    }
 
     $logDir  = (Join-Path -Path $Src -ChildPath "_Logs")
     New-Item -ItemType directory -Path $logDir | Out-Null
@@ -2845,6 +2865,9 @@ function Completion {
 .PARAMETER SkipCounters
     If present, skip the Windows Performance Counters collection phase.
 
+.PARAMETER SkipWindowsRegistry
+    If present, skip exporting Windows Registry keys.
+
 .PARAMETER SkipVm
     If present, skip the Virtual Machine (VM) data gather phases.
 
@@ -2878,12 +2901,13 @@ function Get-NetView {
         [ValidateRange(0.0001, 1)]
         [Double] $ExecutionRate = 1,
 
-        [parameter(Mandatory=$false)]  [Switch] $SkipAdminCheck = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipLogs       = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipNetsh      = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipNetshTrace = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipCounters   = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipVm         = $false
+        [parameter(Mandatory=$false)]  [Switch] $SkipAdminCheck        = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipLogs              = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipNetsh             = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipNetshTrace        = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipCounters          = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipWindowsRegistry   = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipVm                = $false
     )
 
     # Input Validation
@@ -2910,7 +2934,7 @@ function Get-NetView {
             Start-Thread ${function:CounterDetail} -Params @{OutDir=$workDir}
         }
 
-        Environment       -OutDir $workDir
+        Environment       -OutDir $workDir -SkipWindowsRegistry $SkipWindowsRegistry
         LocalhostDetail   -OutDir $workDir
         NetworkSummary    -OutDir $workDir
         NetSetupDetail    -OutDir $workDir
@@ -2932,7 +2956,7 @@ function Get-NetView {
 
         throw $_
     } finally {
-        Completion -Src $workDir
+        Completion -Src $workDir -SkipWindowsRegistry $SkipWindowsRegistry
     }
 } # Get-NetView
 
