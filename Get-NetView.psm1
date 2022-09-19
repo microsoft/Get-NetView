@@ -99,6 +99,21 @@ $ExecFunctions = {
         return $status, $duration.TotalMilliseconds, $commandOut
     } # TestCommand()
 
+    function CreateZip {
+        [CmdletBinding()]
+        Param(
+            [parameter(Mandatory=$true)] [String] $Src,
+            [parameter(Mandatory=$true)] [String] $Out
+        )
+
+        if (Test-path $Out) {
+            Remove-item $Out
+        }
+
+        Add-Type -assembly "system.io.compression.filesystem"
+        [io.compression.zipfile]::CreateFromDirectory($Src, $Out)
+    } # CreateZip()
+
     function ExecCommand {
         [CmdletBinding()]
         Param(
@@ -2493,8 +2508,7 @@ function SystemLogs {
 function Environment {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $OutDir,
-        [parameter(Mandatory=$true)] [Bool] $SkipWindowsRegistry
+        [parameter(Mandatory=$true)] [String] $OutDir
     )
 
     $dir = $OutDir
@@ -2518,18 +2532,28 @@ function Environment {
                         "Get-CimInstance ""Win32_Processor"" | Format-List -Property *",
                         "systeminfo"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    if (-not $SkipWindowsRegistry) {
-        $file = "RegistryFileExportOperationStatus.txt"
-        mkdir "$OutDir\RegistryFiles"
-        [String []] $cmds = "reg export HKLM $OutDir\RegistryFiles\hklm.reg",
-                            "reg export HKCU $OutDir\RegistryFiles\hkcu.reg",
-                            "reg export HKCR $OutDir\RegistryFiles\hkcr.reg",
-                            "reg export HKU $OutDir\RegistryFiles\hku.reg",
-                            "reg export HKCC $OutDir\RegistryFiles\hkcc.reg"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-    }
 } # Environment()
+
+function WindowsRegistryDetail {
+    [CmdletBinding()]
+    Param(
+        [parameter(Mandatory=$true)] [String] $OutDir
+    )
+
+    $dir = $OutDir
+    $file = "RegistryFilesExportOperationStatus.txt"
+    New-Item -ItemType "directory" -Path "$OutDir\RegistryFiles"
+    [String []] $cmds = "reg export HKLM $OutDir\RegistryFiles\hklm.reg",
+                        "reg export HKCU $OutDir\RegistryFiles\hkcu.reg",
+                        "reg export HKCR $OutDir\RegistryFiles\hkcr.reg",
+                        "reg export HKU $OutDir\RegistryFiles\hku.reg",
+                        "reg export HKCC $OutDir\RegistryFiles\hkcc.reg"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    #Zip the Windows Registry files due to their large size
+    CreateZip -Src "$dir\RegistryFiles" -Out "$dir\RegistryFiles.zip"
+    Remove-Item "$dir\RegistryFiles" -Force -Recurse
+} # WindowsRegistryDetail()
 
 function LocalhostDetail {
     [CmdletBinding()]
@@ -2715,34 +2739,11 @@ function Initialize {
     Open-GlobalRunspacePool -BackgroundThreads $BackgroundThreads
 } # Initialize()
 
-function CreateZip {
-    [CmdletBinding()]
-    Param(
-        [parameter(Mandatory=$true)] [String] $Src,
-        [parameter(Mandatory=$true)] [String] $Out
-    )
-
-    if (Test-path $Out) {
-        Remove-item $Out
-    }
-
-    Add-Type -assembly "system.io.compression.filesystem"
-    [io.compression.zipfile]::CreateFromDirectory($Src, $Out)
-} # CreateZip()
-
 function Completion {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $Src,
-        [parameter(Mandatory=$true)] [Bool] $SkipWindowsRegistry
+        [parameter(Mandatory=$true)] [String] $Src
     )
-
-    # Zip registry files and delete uncompressed versions
-    if (-not $SkipWindowsRegistry) {
-        CreateZip -Src "$Src\RegistryFiles" -Out "$Src\RegistryFiles.zip"
-        Remove-Item "$Src\RegistryFileExportOperationStatus.txt"
-        Remove-Item "$Src\RegistryFiles" -Force -Recurse
-    }
 
     $logDir  = (Join-Path -Path $Src -ChildPath "_Logs")
     New-Item -ItemType directory -Path $logDir | Out-Null
@@ -2934,7 +2935,11 @@ function Get-NetView {
             Start-Thread ${function:CounterDetail} -Params @{OutDir=$workDir}
         }
 
-        Environment       -OutDir $workDir -SkipWindowsRegistry $SkipWindowsRegistry
+        if (-not $SkipWindowsRegistry) {
+            Start-Thread ${function:WindowsRegistryDetail} -Params @{OutDir=$workDir}
+        }
+
+        Environment       -OutDir $workDir
         LocalhostDetail   -OutDir $workDir
         NetworkSummary    -OutDir $workDir
         NetSetupDetail    -OutDir $workDir
@@ -2956,7 +2961,7 @@ function Get-NetView {
 
         throw $_
     } finally {
-        Completion -Src $workDir -SkipWindowsRegistry $SkipWindowsRegistry
+        Completion -Src $workDir
     }
 } # Get-NetView
 
