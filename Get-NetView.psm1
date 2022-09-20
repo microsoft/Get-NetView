@@ -2542,7 +2542,7 @@ function WindowsRegistryDetail {
 
     $dir = $OutDir
     $file = "RegistryFilesExportOperationStatus.txt"
-    New-Item -ItemType "directory" -Path "$OutDir\RegistryFiles"
+    New-Item -ItemType "directory" -Path "$OutDir\RegistryFiles" | Out-Null
     [String []] $cmds = "reg export HKLM $OutDir\RegistryFiles\hklm.reg",
                         "reg export HKCU $OutDir\RegistryFiles\hkcu.reg",
                         "reg export HKCR $OutDir\RegistryFiles\hkcr.reg",
@@ -2558,11 +2558,16 @@ function WindowsRegistryDetail {
 function LocalhostDetail {
     [CmdletBinding()]
     Param(
-        [parameter(Mandatory=$true)] [String] $OutDir
+        [parameter(Mandatory=$true)] [String] $OutDir,
+        [parameter(Mandatory=$true)] [Bool] $SkipWindowsRegistry
     )
 
     $dir = (Join-Path -Path $OutDir -ChildPath "_Localhost") # sort to top
     New-Item -ItemType directory -Path $dir | Out-Null
+  
+    if (-not $SkipWindowsRegistry) {
+        Start-Thread ${function:WindowsRegistryDetail} -Params @{OutDir=$dir}
+    }
 
     SystemLogs        -OutDir $dir
     ServicesDrivers   -OutDir $dir
@@ -2935,12 +2940,8 @@ function Get-NetView {
             Start-Thread ${function:CounterDetail} -Params @{OutDir=$workDir}
         }
 
-        if (-not $SkipWindowsRegistry) {
-            Start-Thread ${function:WindowsRegistryDetail} -Params @{OutDir=$workDir}
-        }
-
         Environment       -OutDir $workDir
-        LocalhostDetail   -OutDir $workDir
+        LocalhostDetail   -OutDir $workDir -SkipWindowsRegistry $SkipWindowsRegistry
         NetworkSummary    -OutDir $workDir
         NetSetupDetail    -OutDir $workDir
         NicDetail         -OutDir $workDir
