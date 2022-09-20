@@ -99,6 +99,21 @@ $ExecFunctions = {
         return $status, $duration.TotalMilliseconds, $commandOut
     } # TestCommand()
 
+    function CreateZip {
+        [CmdletBinding()]
+        Param(
+            [parameter(Mandatory=$true)] [String] $Src,
+            [parameter(Mandatory=$true)] [String] $Out
+        )
+
+        if (Test-path $Out) {
+            Remove-item $Out
+        }
+
+        Add-Type -assembly "system.io.compression.filesystem"
+        [io.compression.zipfile]::CreateFromDirectory($Src, $Out)
+    } # CreateZip()
+
     function ExecCommand {
         [CmdletBinding()]
         Param(
@@ -2519,14 +2534,40 @@ function Environment {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # Environment()
 
-function LocalhostDetail {
+function WindowsRegistryDetail {
     [CmdletBinding()]
     Param(
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
+    $dir = $OutDir
+    $file = "RegistryFilesExportOperationStatus.txt"
+    New-Item -ItemType "directory" -Path "$OutDir\RegistryFiles" | Out-Null
+    [String []] $cmds = "reg export HKLM $OutDir\RegistryFiles\hklm.reg",
+                        "reg export HKCU $OutDir\RegistryFiles\hkcu.reg",
+                        "reg export HKCR $OutDir\RegistryFiles\hkcr.reg",
+                        "reg export HKU $OutDir\RegistryFiles\hku.reg",
+                        "reg export HKCC $OutDir\RegistryFiles\hkcc.reg"
+    ExecCommands -OutDir $dir -File $file -Commands $cmds
+
+    #Zip the Windows Registry files due to their large size
+    CreateZip -Src "$dir\RegistryFiles" -Out "$dir\RegistryFiles.zip"
+    Remove-Item "$dir\RegistryFiles" -Force -Recurse
+} # WindowsRegistryDetail()
+
+function LocalhostDetail {
+    [CmdletBinding()]
+    Param(
+        [parameter(Mandatory=$true)] [String] $OutDir,
+        [parameter(Mandatory=$true)] [Bool] $SkipWindowsRegistry
+    )
+
     $dir = (Join-Path -Path $OutDir -ChildPath "_Localhost") # sort to top
     New-Item -ItemType directory -Path $dir | Out-Null
+  
+    if (-not $SkipWindowsRegistry) {
+        Start-Thread ${function:WindowsRegistryDetail} -Params @{OutDir=$dir}
+    }
 
     SystemLogs        -OutDir $dir
     ServicesDrivers   -OutDir $dir
@@ -2703,21 +2744,6 @@ function Initialize {
     Open-GlobalRunspacePool -BackgroundThreads $BackgroundThreads
 } # Initialize()
 
-function CreateZip {
-    [CmdletBinding()]
-    Param(
-        [parameter(Mandatory=$true)] [String] $Src,
-        [parameter(Mandatory=$true)] [String] $Out
-    )
-
-    if (Test-path $Out) {
-        Remove-item $Out
-    }
-
-    Add-Type -assembly "system.io.compression.filesystem"
-    [io.compression.zipfile]::CreateFromDirectory($Src, $Out)
-} # CreateZip()
-
 function Completion {
     [CmdletBinding()]
     Param(
@@ -2845,6 +2871,9 @@ function Completion {
 .PARAMETER SkipCounters
     If present, skip the Windows Performance Counters collection phase.
 
+.PARAMETER SkipWindowsRegistry
+    If present, skip exporting Windows Registry keys.
+
 .PARAMETER SkipVm
     If present, skip the Virtual Machine (VM) data gather phases.
 
@@ -2878,12 +2907,13 @@ function Get-NetView {
         [ValidateRange(0.0001, 1)]
         [Double] $ExecutionRate = 1,
 
-        [parameter(Mandatory=$false)]  [Switch] $SkipAdminCheck = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipLogs       = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipNetsh      = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipNetshTrace = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipCounters   = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipVm         = $false
+        [parameter(Mandatory=$false)]  [Switch] $SkipAdminCheck        = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipLogs              = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipNetsh             = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipNetshTrace        = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipCounters          = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipWindowsRegistry   = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipVm                = $false
     )
 
     # Input Validation
@@ -2911,7 +2941,7 @@ function Get-NetView {
         }
 
         Environment       -OutDir $workDir
-        LocalhostDetail   -OutDir $workDir
+        LocalhostDetail   -OutDir $workDir -SkipWindowsRegistry $SkipWindowsRegistry
         NetworkSummary    -OutDir $workDir
         NetSetupDetail    -OutDir $workDir
         NicDetail         -OutDir $workDir
