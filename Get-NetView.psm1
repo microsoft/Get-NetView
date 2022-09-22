@@ -2534,6 +2534,7 @@ function Environment {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # Environment()
 
+# Registry files can vary in size significantly between runs
 function WindowsRegistryDetail {
     [CmdletBinding()]
     Param(
