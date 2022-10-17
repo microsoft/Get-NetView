@@ -1484,6 +1484,28 @@ public class MarvellGetDiagData
     }
 } # Marvell Detail
 
+function IntelDetail {
+    [CmdletBinding()]
+    Param(
+        [parameter(Mandatory=$true)] [String] $NicName,
+        [parameter(Mandatory=$true)] [String] $OutDir
+    )
+
+    IntelReadETrackId -NicName $NicName -OutDir $OutDir
+} # Intel Detail
+
+function IntelReadETrackId {
+    [CmdLetBinding()]
+    Param(
+        [parameter(Mandatory=$true)] [String] $NicName,
+        [parameter(Mandatory=$true)] [String] $OutDir
+    )
+
+    $file = "IntelETrackID.txt"
+    [String []] $cmds = "'ETrackID:', '{0:X}' -f (Get-CimInstance -Namespace 'root/wmi' -ClassName 'IntlLan_EetrackId').Where({`$_.InstanceName -eq (Get-NetAdapter -Name '$NicName').InterfaceDescription}).Id"
+    ExecCommandsAsync -OutDir $OutDir -File $file -Commands $cmds
+} # IntelReadETrackId
+
 <#
 .SYNOPSIS
     Function stub for extension by IHVs Copy and rename it,
@@ -1534,6 +1556,10 @@ function NicVendor {
         }
         "*EBDRV\L2ND*" {
             MarvellDetail  $NicName $dir
+            break
+        }
+        "PCI\VEN_8086*" {
+            IntelDetail  $NicName $dir
             break
         }
         # To extend refer to MyVendorDetail() above.
