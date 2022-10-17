@@ -1428,36 +1428,20 @@ function IntelDetail {
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
-    IntelReadEetrackId -NicName $NicName -OutDir $OutDir
+    IntelReadETrackId -NicName $NicName -OutDir $OutDir
 } # Intel Detail
 
-function IntelReadEetrackId {
+function IntelReadETrackId {
     [CmdLetBinding()]
     Param(
         [parameter(Mandatory=$true)] [String] $NicName,
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
-    $params = @{'Namespace'='root/wmi';
-                'ClassName'='IntlLan_EetrackId';
-                'Property'='Id';
-                'ErrorAction'='Stop'}
-
-    try {
-        $eetrackId = Get-CimInstance @params
-    }
-    catch {
-        Write-OutPut "No Intel(R) LAN interfaces support IntlLan_EetrackId interface."
-        Exit
-    }
-
-    $file = "IntelEetrack.txt"
-
-    # Locate the interface we are looking for based on the string name, as we will need
-    # the InterfaceDescription field.
-    $IntDesc = Get-NetAdapter | Where-Object { $_.Name -eq $NicName }
-    $eetrackId | ForEach-Object { if ($_.InstanceName -eq $IntDesc.InterfaceDescription) { "- EETRACK ID:", '{0:X}' -f $_.Id | Out-File -FilePath $OutDir\$file } }
-} # IntelReadEetrackId
+    $file = "IntelETrackID.txt"
+    [String []] $cmds = "'ETrackID:', '{0:X}' -f (Get-CimInstance -Namespace 'root/wmi' -ClassName 'IntlLan_EetrackId').Where({`$_.InstanceName -eq (Get-NetAdapter -Name '$NicName').InterfaceDescription}).Id"
+    ExecCommandsAsync -OutDir $OutDir -File $file -Commands $cmds
+} # IntelReadETrackId
 
 <#
 .SYNOPSIS
