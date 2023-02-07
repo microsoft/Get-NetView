@@ -2262,9 +2262,9 @@ function ATCDetail {
 
     Write-Progress -Activity $Global:QueueActivity -Status "Processing $($MyInvocation.MyCommand.Name)"
 
-    $intent = Get-Command "Get-NetIntent" -ErrorAction "SilentlyContinue"
-    $cluster = Get-Command "Get-Cluster" -ErrorAction "SilentlyContinue"
-    if (-not ($intent -or $cluster)) {
+    $intentCmd = Get-Command "Get-NetIntent" -ErrorAction "SilentlyContinue"
+    $clusterCmd = Get-Command "Get-Cluster" -ErrorAction "SilentlyContinue"
+    if (-not ($intentCmd -or $clusterCmd)) {
         return
     }
 
@@ -2272,7 +2272,7 @@ function ATCDetail {
     New-Item -ItemType directory -Path $dir | Out-Null
 
     # Local Intents
-    if ($intent) {
+    if ($intentCmd) {
         $file = "Get-NetIntent_Standalone.txt"
         [String []] $cmds = "Get-NetIntent"
         ExecCommands -OutDir $dir -File $file -Commands $cmds
@@ -2287,7 +2287,8 @@ function ATCDetail {
     }
 
     # Cluster Intents
-    if ($cluster) {
+    if ($clusterCmd) {
+        $cluster = TryCmd { Get-Cluster }
         $file = "Get-NetIntent_Cluster.txt"
         [String []] $cmds = "Get-NetIntent -ClusterName $($cluster.Name)"
         ExecCommands -OutDir $dir -File $file -Commands $cmds
