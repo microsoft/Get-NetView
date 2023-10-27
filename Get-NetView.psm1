@@ -1858,17 +1858,27 @@ function VfpExtensionDetail {
     [String []] $cmds = "Get-CimInstance -ClassName ""CIM_DataFile"" -Filter ""Name='$vfpExtPath'"""
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
+    $file = "VfpCtrl.VmSwitchPort.txt"
+    [string []] $cmds = "vfpctrl.exe /list-vmswitch-port"
+    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+
     $currSwitch = Get-CimInstance -Filter "Name='$id'" -ClassName "Msvm_VirtualEthernetSwitch" -Namespace "Root\Virtualization\v2"
     $ports = Get-CimAssociatedInstance -InputObject $currSwitch -ResultClassName "Msvm_EthernetSwitchPort"
-
-    foreach ($portGuid in $ports.Name) {
-        $file = "VfpCtrl.PortGuid.$portGuid.txt"
-        [String []] $cmds = "vfpctrl.exe /list-vmswitch-port",
-                            "vfpctrl.exe /list-space /port $portGuid",
-                            "vfpctrl.exe /list-mapping /port $portGuid",
-                            "vfpctrl.exe /list-rule /port $portGuid",
-                            "vfpctrl.exe /port $portGuid /get-port-state"
-        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    if ($ports) {
+        foreach ($portGuid in $ports.Name) {
+            $file = "VfpCtrl.PortGuid.$portGuid.txt"
+            [String []] $cmds = "vfpctrl.exe /get-flow-stats /port $portGuid",
+                                "vfpctrl.exe /get-port-state /port $portGuid",
+                                "vfpctrl.exe /get-port-flow-settings /port $portGuid",
+                                "vfpctrl.exe /get-port-flow-stats /port $portGuid",
+                                "vfpctrl.exe /list-mapping /port $portGuid",
+                                "vfpctrl.exe /list-nat-range /port $portGuid",
+                                "vfpctrl.exe /list-rule /port $portGuid",
+                                "vfpctrl.exe /list-space /port $portGuid",
+                                "vfpctrl.exe /list-unified-flow /port $portGuid"
+                                
+            ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+        }
     }
 } # VfpExtensionDetail()
 
