@@ -1,4 +1,4 @@
-$Global:Version = "2023.2.7.226"
+$Global:Version = "2023.6.9.228"
 
 $Script:RunspacePool = $null
 $Script:ThreadList = [Collections.ArrayList]@()
@@ -1575,6 +1575,10 @@ function HostVNicWorker {
         [parameter(Mandatory=$true)] [String] $OutDir
     )
 
+    # We need to get the actual name of the VM adapter as it can be different than that of the Get-NetAdapter output
+    # Also, the Get-VMNetworkAdapter cmdlet is the only one that can identify the adapter by DeviceID
+    [String] $vmNic = (Get-VMNetworkAdapter -ManagementOS | where {$_.DeviceId -eq "$DeviceId"}).Name
+
     $dir  = $OutDir
 
     $file = "Get-VMNetworkAdapter.txt"
@@ -1583,33 +1587,33 @@ function HostVNicWorker {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterAcl.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
-                        "Get-VMNetworkAdapterAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterAcl -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""}",
+                        "Get-VMNetworkAdapterAcl -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterExtendedAcl.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterExtendedAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
-                        "Get-VMNetworkAdapterExtendedAcl -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterExtendedAcl -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""}",
+                        "Get-VMNetworkAdapterExtendedAcl -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterIsolation.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterIsolation -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
-                        "Get-VMNetworkAdapterIsolation -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterIsolation -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""}",
+                        "Get-VMNetworkAdapterIsolation -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterRoutingDomainMapping.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
-                        "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""}",
+                        "Get-VMNetworkAdapterRoutingDomainMapping -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""} | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterTeamMapping.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
-                        "Get-VMNetworkAdapterTeamMapping -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""}",
+                        "Get-VMNetworkAdapterTeamMapping -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterVlan.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterVlan -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""}",
-                        "Get-VMNetworkAdapterVlan -ManagementOS | where {`$_.DeviceId -eq ""$DeviceId""} | Format-List  -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterVlan -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""}",
+                        "Get-VMNetworkAdapterVlan -ManagementOS | where {`$_.ParentAdapter.Name -contains ""$vmNic""} | Format-List  -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # HostVNicWorker()
 
@@ -1803,6 +1807,7 @@ function VMSwitchWorker {
     $dir = $OutDir
 
     $vmSwitchObject = "`$(Get-VMSwitch -Id $id)"
+    $vmSwitchName = (Get-VMSwitch -Id $id).Name
 
     $file = "Get-VMSwitch.txt"
     [String []] $cmds = "$vmSwitchObject",
@@ -1826,7 +1831,7 @@ function VMSwitchWorker {
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
     $file = "Get-VMNetworkAdapterTeamMapping.txt"
-    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -ManagementOS -SwitchName $vmSwitchObject | Format-List -Property *"
+    [String []] $cmds = "Get-VMNetworkAdapterTeamMapping -ManagementOS -SwitchName '$vmSwitchName' | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 } # VMSwitchWorker()
 
