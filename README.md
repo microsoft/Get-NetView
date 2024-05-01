@@ -45,7 +45,7 @@ For additional help and advanced options, run:
 Get-Help Get-NetView
 ```
 
-This tool is also run automatically by [Get-SDDCDiagnosticInfo](https://github.com/PowerShell/PrivateCloud.DiagnosticInfo).
+This tool is also run automatically by [Get-SDDCDiagnosticInfo](https://github.com/PowerShell/PrivateCloud.DiagnosticInfo) by including the -IncludeGetNetView parameter.
 
 # :star: More by the Microsoft Core Networking team
 Find more from the Core Networking team using the [MSFTNet](https://github.com/topics/msftnet) topic.
