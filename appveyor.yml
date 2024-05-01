@@ -33,7 +33,7 @@ version: '{build}'
 #CoreNetBuilder
 environment:
   NuGetApiKey:
-    secure: Y9sXrGH8AUCbmpl0Wrzkw0GHUy1LAP1a1VK5QITkbrF03VLgM++GrpEkRic55Yrm
+    secure: yM66usk26GL3IV6hGkA0AZsCznJKtjBnzuKEGzbN5WpK+AT7rOXmNKxj6kfAR7EZ
   GitHubKey:
     secure: 4VTkUGIAUqMtDSbrIrbn856kPmOLVYNSSy/NwsnQajL+7o+xpoqWZcTpYfEXco2/
   APPVEYOR_RDP_PASSWORD:
