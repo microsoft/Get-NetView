@@ -12,7 +12,7 @@
 RootModule = 'Get-NetView.psm1'
 
 # Version number of this module.
-ModuleVersion = '2023.6.9.228'
+ModuleVersion = '2023.2.7.226'
 
 # Supported PSEditions
 CompatiblePSEditions = 'Desktop', 'Core'
@@ -129,4 +129,3 @@ PrivateData = @{
 # DefaultCommandPrefix = ''
 
 }
-
