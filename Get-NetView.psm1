@@ -1881,7 +1881,7 @@ function VfpExtensionDetail {
                                 "vfpctrl.exe /list-rule /port $portGuid",
                                 "vfpctrl.exe /list-space /port $portGuid",
                                 "vfpctrl.exe /list-unified-flow /port $portGuid"
-                                
+
             ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
         }
     }
@@ -2445,9 +2445,13 @@ function NetshDetail {
                         "netsh interface ipv4 show ipstats",
                         "netsh interface ipv4 show tcpstats",
                         "netsh interface ipv4 show udpstats",
+                        "netsh interface ipv4 show subinterfaces level=verbose",
+                        "netsh interface fl48 show virtualinterfaces level=verbose",
                         "netsh interface ipv6 show ipstats",
                         "netsh interface ipv6 show tcpstats",
-                        "netsh interface ipv6 show udpstats"
+                        "netsh interface ipv6 show udpstats",
+                        "netsh interface ipv6 show subinterfaces level=verbose",
+                        "netsh interface fl68 show virtualinterfaces level=verbose"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
 
     $file = "NetshTrace.txt"
@@ -2607,7 +2611,7 @@ function LocalhostDetail {
 
     $dir = (Join-Path -Path $OutDir -ChildPath "_Localhost") # sort to top
     New-Item -ItemType directory -Path $dir | Out-Null
-  
+
     if (-not $SkipWindowsRegistry) {
         Start-Thread ${function:WindowsRegistryDetail} -Params @{OutDir=$dir}
     }
