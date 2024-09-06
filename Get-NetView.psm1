@@ -1,4 +1,4 @@
-$Global:Version = "2023.2.7.226"
+$Global:Version = "2024.9.6.240"
 
 $Script:RunspacePool = $null
 $Script:ThreadList = [Collections.ArrayList]@()
