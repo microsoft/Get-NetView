@@ -2116,12 +2116,14 @@ function SMBDetail {
     $file = "Get-SmbBandwidthLimit.txt"
     [String []] $cmds = "Get-SmbBandwidthLimit"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "Smb-WindowsEvents.txt"
-    [String []] $cmds = "Get-WinEvent -ListLog ""*SMB*"" | Format-List -Property *",
-                        "Get-WinEvent -FilterHashtable @{LogName=""Microsoft-Windows-SMB*""; ProviderName=""Microsoft-Windows-SMB*""} | where {`$_.Message -like ""*RDMA*""} | Format-List -Property *"
-
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    
+    if (-not $SkipSMBEvents ){
+        $file = "Smb-WindowsEvents.txt"
+        [String []] $cmds = "Get-WinEvent -ListLog ""*SMB*"" | Format-List -Property *",
+                            "Get-WinEvent -FilterHashtable @{LogName=""Microsoft-Windows-SMB*""; ProviderName=""Microsoft-Windows-SMB*""} | where {`$_.Message -like ""*RDMA*""} | Format-List -Property *"
+    
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    }
 } # SMBDetail()
 
 function NetSetupDetail {
@@ -2338,14 +2340,16 @@ function ServicesDrivers {
                         "Get-Service ""*"" | Sort-Object Name | Format-Table -Property * -AutoSize"
     ExecCommands -OutDir $dir -File $file -Commands $cmds # Get-Service has concurrency issues
 
-    $file = "Get-WindowsDriver.txt"
-    [String []] $cmds = "Get-WindowsDriver -Online -All"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "Get-WindowsEdition.txt"
-    [String []] $cmds = "Get-WindowsEdition -Online"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
+    if (-not $SkipOnline) {
+        $file = "Get-WindowsDriver.txt"
+        [String []] $cmds = "Get-WindowsDriver -Online -All"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    }
+    if (-not $SkipOnline) {
+        $file = "Get-WindowsEdition.txt"
+        [String []] $cmds = "Get-WindowsEdition -Online"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    }
     $file = "Get-HotFix.txt"
     [String []] $cmds = "Get-Hotfix | Sort-Object InstalledOn | Format-Table -AutoSize",
                         "Get-Hotfix | Sort-Object InstalledOn | Format-Table -Property * -AutoSize"
@@ -2361,10 +2365,11 @@ function ServicesDrivers {
                         "Get-CimInstance Win32_PnPSignedDriver | Format-List -Property *"
     ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
 
-    $file = "dism.txt"
-    [String []] $cmds = "dism /online /get-features"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
+    if (-not $SkipOnline) {
+        $file = "dism.txt"
+        [String []] $cmds = "dism /online /get-features"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    }
 } # ServicesDrivers()
 
 function VMHostDetail {
@@ -2923,7 +2928,13 @@ function Completion {
 
 .PARAMETER SkipVm
     If present, skip the Virtual Machine (VM) data gather phases.
-
+    
+.PARAMETER SkipOnline
+     If present, skip the Online data gather phases.
+    
+.PARAMETER SkipSMBEvents
+    If present, skips collecting  of SMB Events.
+    
 .EXAMPLE
     Get-NetView -OutputDirectory ".\"
     Runs Get-NetView and outputs to the current working directory.
@@ -2960,6 +2971,8 @@ function Get-NetView {
         [parameter(Mandatory=$false)]  [Switch] $SkipNetshTrace        = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipCounters          = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipWindowsRegistry   = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipSMBEvents         = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipOnline            = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipVm                = $false
     )
 
