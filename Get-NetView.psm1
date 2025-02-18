@@ -2934,6 +2934,9 @@ function Completion {
     
 .PARAMETER SkipSMBEvents
     If present, skips collecting  of SMB Events.
+
+.PARAMETER SkipPktMon
+    If present, skips collecting PktMon information
     
 .EXAMPLE
     Get-NetView -OutputDirectory ".\"
@@ -2973,7 +2976,8 @@ function Get-NetView {
         [parameter(Mandatory=$false)]  [Switch] $SkipWindowsRegistry   = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipSMBEvents         = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipOnline            = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipVm                = $false
+        [parameter(Mandatory=$false)]  [Switch] $SkipVm                = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipPktMon            = $false
     )
 
     # Input Validation
@@ -3013,8 +3017,10 @@ function Get-NetView {
         NetNatDetail      -OutDir $workDir
         HNSDetail         -OutDir $workDir
         ATCDetail         -OutDir $workDir
-        PktmonDetail      -OutDir $workDir
-
+        if (-not $SkipPktMon) {
+            PktmonDetail      -OutDir $workDir
+        }
+        
         Show-Threads
     } catch {
         $msg = $($_ | Out-String) + "`nStack Trace:`n" + $_.ScriptStackTrace
