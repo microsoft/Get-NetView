@@ -1892,35 +1892,37 @@ function VMSwitchDetail {
     Param(
         [parameter(Mandatory=$true)] [String] $OutDir
     )
-
+ 
     # Acquire switch properties/settings via CMD tools
     $dir  = (Join-Path -Path $OutDir -ChildPath "VMSwitch.Detail")
     New-Item -ItemType directory -Path $dir | Out-Null
-
+ 
     $file = "VmspRegistry.txt"
     [String []] $cmds = "Get-ChildItem HKLM:\SYSTEM\CurrentControlSet\Services\vmsmp -Recurse"
     ExecCommands -OutDir $dir -File $file -Commands $cmds
-
-    $file = "NvspInfo.txt"
-    [String []] $cmds = "nvspinfo -a -i -h -D -p -d -m -q "
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "NvspInfo_bindings.txt"
-    [String []] $cmds = "nvspinfo -a -i -h -D -p -d -m -q -b "
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "NvspInfo_ExecMon.txt"
-    [String []] $cmds = "nvspinfo -X --count --sort max ",
-                        "nvspinfo -X --count IOCTL --sort max",
-                        "nvspinfo -X --count OID --sort max",
-                        "nvspinfo -X --count WORKITEM --sort max",
-                        "nvspinfo -X --count RNDIS --sort max"
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
-    $file = "NmScrub.txt"
-    [String []] $cmds = "nmscrub -a -n -t "
-    ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
-
+ 
+    if (-not $SkipNvspInfo ){
+        $file = "NvspInfo.txt"
+        [String []] $cmds = "nvspinfo -a -i -h -D -p -d -m -q "
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+ 
+        $file = "NvspInfo_bindings.txt"
+        [String []] $cmds = "nvspinfo -a -i -h -D -p -d -m -q -b "
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+ 
+        $file = "NvspInfo_ExecMon.txt"
+        [String []] $cmds = "nvspinfo -X --count --sort max ",
+                            "nvspinfo -X --count IOCTL --sort max",
+                            "nvspinfo -X --count OID --sort max",
+                            "nvspinfo -X --count WORKITEM --sort max",
+                            "nvspinfo -X --count RNDIS --sort max"
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+ 
+        $file = "NmScrub.txt"
+        [String []] $cmds = "nmscrub -a -n -t "
+        ExecCommandsAsync -OutDir $dir -File $file -Commands $cmds
+    }
+ 
     # Acquire per vSwitch instance info/mappings
     [Int] $index = 1
     foreach ($vmSwitch in TryCmd {Get-VMSwitch}) {
@@ -1928,17 +1930,17 @@ function VMSwitchDetail {
         $type  = $vmSwitch.SwitchType
         $id    = $vmSwitch.Id
         $title = "VMSwitch.$index.$type.$name"
-
+ 
         $dir  =  Join-Path $OutDir $(ConvertTo-Filename $title)
         New-Item -ItemType directory -Path $dir | Out-Null
-
+ 
         Write-Progress -Activity $Global:QueueActivity -Status "Processing $title"
         VfpExtensionDetail    -VMSwitchId $id -OutDir $dir
         VMSwitchWorker        -VMSwitchId $id -OutDir $dir
         ProtocolNicDetail     -VMSwitchId $id -OutDir $dir
         HostVNicDetail        -VMSwitchId $id -OutDir $dir
         VMNetworkAdapterPerVM -VMSwitchId $id -OutDir $dir
-
+ 
         $index++
     }
 } # VMSwitchDetail()
@@ -2937,6 +2939,9 @@ function Completion {
 
 .PARAMETER SkipPktMon
     If present, skips collecting PktMon information
+
+.PARAMETER SkipNvspInfo
+    If present, skips collecting NvspInfo information.
     
 .EXAMPLE
     Get-NetView -OutputDirectory ".\"
@@ -2977,7 +2982,8 @@ function Get-NetView {
         [parameter(Mandatory=$false)]  [Switch] $SkipSMBEvents         = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipOnline            = $false,
         [parameter(Mandatory=$false)]  [Switch] $SkipVm                = $false,
-        [parameter(Mandatory=$false)]  [Switch] $SkipPktMon            = $false
+        [parameter(Mandatory=$false)]  [Switch] $SkipPktMon            = $false,
+        [parameter(Mandatory=$false)]  [Switch] $SkipNvspInfo          = $false
     )
 
     # Input Validation
