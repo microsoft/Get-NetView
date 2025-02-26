@@ -35,7 +35,7 @@ environment:
   NuGetApiKey:
     secure: yM66usk26GL3IV6hGkA0AZsCznJKtjBnzuKEGzbN5WpK+AT7rOXmNKxj6kfAR7EZ
   GitHubKey:
-    secure: x4aEadqrzmUE3vhUU32+Jxg8nM9TP4Spd6dqQz7gpcBHbNYBnKTydYDOBo8k+dx1VU3IgdIT8FBV2DmXcWqdgO3BodSU2D/lTVFGUp1yNrHI+zMBvtOhBD7h4eAZMsfU
+    secure: gYdPKtnKDlG0egxhhmZ0rYqHlLn2+V/qsqlIouXC/LypImn8KF7eBUKtwcMCGmz5
   APPVEYOR_RDP_PASSWORD:
     secure: q9cNMN8o/tkzFDvDf+npkj5MOgFVGOLnJokZq/d4BUY=
 
